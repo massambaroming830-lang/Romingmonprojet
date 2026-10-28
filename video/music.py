@@ -4,7 +4,7 @@ import sys, wave
 import numpy as np
 
 SR = 44100
-DUR = 21.0
+DUR = 23.0
 BPM = 120
 beat = 60 / BPM
 N = int(SR * DUR)
@@ -64,7 +64,7 @@ add(impact(), 0.45, 0.9)
 # Progression mineure (La mineur) : Am - F - C - G, 2 s par accord
 prog = [[220, 261.6, 329.6], [174.6, 220, 261.6], [261.6, 329.6, 392], [196, 246.9, 293.7]]
 roots = [55, 43.65, 65.4, 49]
-for k in range(11):
+for k in range(12):
     ch = prog[k % 4]
     add(pad(ch, 2.2), k * 2, 0.18)
     if k >= 2:  # la basse entre à 4 s
@@ -74,7 +74,7 @@ for k in range(11):
 # Batterie à partir de 4 s, coupée pendant le slogan pour respirer
 for i in range(int(DUR / beat)):
     at = i * beat
-    if at < 4 or at > 20.2: continue
+    if at < 4 or at > 22.2: continue
     if 14.2 < at < 16.7 and i % 2: continue
     add(kick(), at, 0.9)
     add(hat(), at + beat / 2, 0.6)

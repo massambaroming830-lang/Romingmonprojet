@@ -3,7 +3,7 @@
 Mon premier projet : la vidéo de présentation en motion design de **MING Store**
 (import & export entre la Chine, Dubaï, la Turquie et les pays africains).
 
-## Vidéos (21 s, avec musique originale)
+## Vidéos (23 s, voix off française + musique originale)
 
 | Format | Fichier |
 |---|---|
@@ -16,7 +16,8 @@ Scènes : logo MING Store → « Import & Export » → routes Chine / Dubaï / 
 ## Modifier et refaire la vidéo
 
 - `video/animation.html` : l'animation (textes, couleurs, numéros). Ouvre-la dans un navigateur pour un aperçu.
-- `video/music.py` : génère la bande-son `music.wav`.
+- `video/music.py` : génère la musique `music_bed.wav`.
+- `video/voiceover.py` : génère la voix off `voice.wav` (Kokoro TTS + espeak-ng), mixée dans `music.wav`.
 - `video/render.js` : exporte en MP4 (Node.js, Playwright et ffmpeg requis).
 
 ```bash
