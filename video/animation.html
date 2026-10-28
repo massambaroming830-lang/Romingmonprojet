@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>MING Store – vidéo de présentation</title>
+<style>
+  @font-face { font-family: P; font-weight: 300; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Light.ttf"); }
+  @font-face { font-family: P; font-weight: 400; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Regular.ttf"); }
+  @font-face { font-family: P; font-weight: 500; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Medium.ttf"); }
+  @font-face { font-family: P; font-weight: 700; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Bold.ttf"); }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// ---------- Réglages ----------
+const params = new URLSearchParams(location.search);
+const W = +params.get('w') || 1080;
+const H = +params.get('h') || 1920;
+const DURATION = 21;               // secondes
+const RED = '#A3192F', RED_L = '#D3263F', WHITE = '#FFFFFF', GREY = '#9a9a9a';
+const BG = '#060606';
+
+const cv = document.getElementById('c');
+cv.width = W; cv.height = H;
+const ctx = cv.getContext('2d');
+const PORTRAIT = H > W;
+const U = Math.min(W, H) / 1080;   // unité de mise à l'échelle
+
+// ---------- Outils ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const eBack = x => { const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const lerp = (a, b, x) => a + (b - a) * x;
+function rnd(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+
+function font(size, weight = 700) { ctx.font = `${weight} ${size * U}px P`; }
+function text(str, x, y, { size = 60, weight = 700, color = WHITE, align = 'center', alpha = 1, spacing = 0 } = {}) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  font(size, weight);
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${spacing * U}px`;
+  ctx.fillText(str, x, y);
+  ctx.restore();
+}
+function measure(str, size, weight = 700, spacing = 0) {
+  font(size, weight);
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${spacing * U}px`;
+  const w = ctx.measureText(str).width;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  return w;
+}
+
+// ---------- Fond : particules rouges + vignette ----------
+const R = rnd(42);
+const particles = Array.from({ length: 70 }, () => ({
+  x: R(), y: R(), r: (R() * 3 + 1), sp: R() * 0.04 + 0.01, ph: R() * 6.28, a: R() * 0.5 + 0.15
+}));
+function background(t) {
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  // halo rouge qui respire
+  const g = ctx.createRadialGradient(W * .5, H * .5, 0, W * .5, H * .5, Math.max(W, H) * .7);
+  const pulse = 0.18 + 0.05 * Math.sin(t * 1.3);
+  g.addColorStop(0, `rgba(163,25,47,${pulse})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // particules
+  for (const p of particles) {
+    const y = ((p.y - t * p.sp) % 1 + 1) % 1;
+    const x = p.x + Math.sin(t * .5 + p.ph) * .01;
+    ctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(t * 2 + p.ph));
+    ctx.fillStyle = p.r > 3 ? RED_L : '#ffffff';
+    ctx.beginPath(); ctx.arc(x * W, y * H, p.r * U, 0, 6.283); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  // vignette
+  const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .75);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.75)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+}
+
+// ---------- Logo (recréé d'après le logo fourni) ----------
+// "MING" blanc au-dessus, "Store" décalé à droite : "Sto" rouge, "re" blanc.
+function logo(cx, cy, scale, t0, t, { alpha = 1 } = {}) {
+  const s = 150 * scale;                   // taille de "MING"
+  const ss = 150 * scale;                  // taille de "Store"
+  const wMing = measure('MING', s, 500);
+  const wStore = measure('Store', ss, 500);
+  const total = wMing * 0.55 + wStore;     // largeur globale de la composition
+  const left = cx - total / 2;
+  const yM = cy - s * U * 0.42, yS = cy + s * U * 0.55;
+
+  ctx.save(); ctx.globalAlpha = alpha;
+  // MING : lettres qui montent une par une
+  let x = left;
+  'MING'.split('').forEach((ch, i) => {
+    const p = eOut(prog(t, t0 + i * 0.09, t0 + i * 0.09 + 0.5));
+    const w = measure(ch, s, 500);
+    text(ch, x, yM + (1 - p) * 60 * U, { size: s, weight: 500, align: 'left', alpha: p });
+    x += w;
+  });
+  // Store : glisse depuis la droite
+  const p2 = eOut(prog(t, t0 + 0.45, t0 + 1.1));
+  const xs = left + wMing * 0.55 + (1 - p2) * 120 * U;
+  const wSto = measure('Sto', ss, 500);
+  // masque pour l'effet d'apparition
+  ctx.save();
+  ctx.beginPath(); ctx.rect(left + wMing * 0.55 - 10 * U, yS - ss * U, (wStore + 40 * U) * p2 + 1, ss * U * 2); ctx.clip();
+  text('Sto', xs, yS, { size: ss, weight: 500, align: 'left', color: RED });
+  text('re', xs + wSto, yS, { size: ss, weight: 500, align: 'left' });
+  ctx.restore();
+  ctx.restore();
+  return { left, right: left + total, bottom: yS + ss * U * 0.55 };
+}
+
+// ---------- Transition : volet rouge ----------
+function wipe(t, t0, dur = 0.7) {
+  const p = prog(t, t0, t0 + dur);
+  if (p <= 0 || p >= 1) return;
+  const a = eInOut(p);
+  const skew = 0.25 * W;
+  ctx.fillStyle = RED;
+  ctx.beginPath();
+  const x0 = lerp(-W - skew, W + skew, a);
+  ctx.moveTo(x0, 0); ctx.lineTo(x0 + W, 0); ctx.lineTo(x0 + W - skew, H); ctx.lineTo(x0 - skew, H); ctx.closePath();
+  ctx.fill();
+}
+
+// ---------- Scène 1 : logo (0 – 4 s) ----------
+function scene1(t) {
+  const out = 1 - eIn(prog(t, 3.4, 3.9));
+  // trait rouge vertical qui balaie
+  const pl = prog(t, 0.0, 0.6);
+  if (pl < 1) {
+    ctx.fillStyle = RED;
+    const lx = lerp(-20, W + 20, eInOut(pl));
+    ctx.fillRect(lx, 0, 14 * U, H);
+  }
+  ctx.save();
+  const zoom = 1 + 0.05 * prog(t, 0.5, 4);
+  ctx.translate(W / 2, H / 2); ctx.scale(zoom, zoom); ctx.translate(-W / 2, -H / 2);
+  const box = logo(W / 2, H / 2 - 40 * U, PORTRAIT ? 1.15 : 1.0, 0.5, t, { alpha: out });
+  // soulignement + slogan
+  const pu = eOut(prog(t, 1.4, 2.1));
+  ctx.globalAlpha = out;
+  ctx.fillStyle = RED;
+  const uw = (box.right - box.left) * pu;
+  ctx.fillRect(W / 2 - uw / 2, box.bottom + 40 * U, uw, 6 * U);
+  text('IMPORT  •  EXPORT', W / 2, box.bottom + 110 * U,
+       { size: 40, weight: 500, spacing: 10, alpha: eOut(prog(t, 1.9, 2.5)) * out, color: '#e8e8e8' });
+  ctx.restore();
+}
+
+// ---------- Scène 2 : import & export (4 – 8.2 s) ----------
+function scene2(t) {
+  const l = t - 4;
+  if (l < 0 || l > 4.4) return;
+  const out = 1 - eIn(prog(l, 3.7, 4.2));
+  const big = PORTRAIT ? 190 : 200;
+  const cy = H / 2 - (PORTRAIT ? 120 : 80) * U;
+  ctx.save(); ctx.globalAlpha = out;
+  // IMPORT depuis la gauche
+  const p1 = eOut(prog(l, 0.15, 0.85));
+  text('IMPORT', lerp(-W * .4, W / 2, p1), cy - big * U * 0.72, { size: big, weight: 700 });
+  // & au centre, rebond
+  const p2 = eBack(prog(l, 0.6, 1.1));
+  ctx.save(); ctx.translate(W / 2, cy + 10 * U); ctx.scale(p2, p2);
+  text('&', 0, 0, { size: big * 0.6, weight: 300, color: RED_L });
+  ctx.restore();
+  // EXPORT depuis la droite (contour rouge rempli progressivement)
+  const p3 = eOut(prog(l, 0.45, 1.15));
+  const ex = lerp(W * 1.4, W / 2, p3), ey = cy + big * U * 0.80;
+  ctx.save();
+  font(big, 700); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 4 * U; ctx.strokeStyle = RED_L; ctx.strokeText('EXPORT', ex, ey);
+  const fill = eInOut(prog(l, 1.2, 1.9));
+  const tw = measure('EXPORT', big, 700);
+  ctx.beginPath(); ctx.rect(ex - tw / 2, ey - big * U, tw * fill, big * U * 2); ctx.clip();
+  ctx.fillStyle = RED; ctx.fillText('EXPORT', ex, ey);
+  ctx.restore();
+  // sous-titre
+  const p4 = eOut(prog(l, 1.7, 2.4));
+  const sy = ey + big * U * 0.72 + (1 - p4) * 30 * U;
+  if (PORTRAIT) {
+    text('Votre partenaire du', W / 2, sy, { size: 50, weight: 400, alpha: p4, color: '#dddddd' });
+    text('commerce international', W / 2, sy + 70 * U, { size: 50, weight: 400, alpha: p4, color: '#dddddd' });
+  } else {
+    text('Votre partenaire du commerce international', W / 2, sy, { size: 46, weight: 400, alpha: p4, color: '#dddddd' });
+  }
+  ctx.restore();
+}
+
+// ---------- Scène 3 : routes Chine / Dubaï / Turquie → Afrique (8.2 – 14.5 s) ----------
+function node(x, y, r, label, sub, p, { main = false } = {}) {
+  if (p <= 0) return;
+  const s = eBack(p);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  // anneau pulsant
+  ctx.globalAlpha = clamp(p) * 0.35;
+  ctx.strokeStyle = RED_L; ctx.lineWidth = 3 * U;
+  ctx.beginPath(); ctx.arc(0, 0, r * 1.45, 0, 6.283); ctx.stroke();
+  ctx.globalAlpha = clamp(p);
+  ctx.fillStyle = main ? RED : '#151515';
+  ctx.strokeStyle = main ? RED_L : RED;
+  ctx.lineWidth = 4 * U;
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.283); ctx.fill(); ctx.stroke();
+  text(label, 0, sub ? -r * 0.12 : 0, { size: main ? 46 : 34, weight: 700 });
+  if (sub) text(sub, 0, r * 0.38, { size: main ? 24 : 20, weight: 400, color: main ? '#ffd9de' : GREY });
+  ctx.restore();
+}
+function arc(ax, ay, bx, by, bend, p, dotT) {
+  if (p <= 0) return;
+  const mx = (ax + bx) / 2, my = (ay + by) / 2;
+  const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
+  const cx = mx - dy / len * bend, cy = my + dx / len * bend;
+  const pt = u => [ (1-u)*(1-u)*ax + 2*(1-u)*u*cx + u*u*bx, (1-u)*(1-u)*ay + 2*(1-u)*u*cy + u*u*by ];
+  ctx.save();
+  ctx.strokeStyle = 'rgba(211,38,63,0.85)'; ctx.lineWidth = 4 * U;
+  ctx.setLineDash([14 * U, 12 * U]);
+  ctx.beginPath();
+  const N = 60;
+  for (let i = 0; i <= N * p; i++) { const [x, y] = pt(i / N); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // colis qui voyage
+  if (p >= 1) {
+    const u = (dotT % 1);
+    const [x, y] = pt(u);
+    ctx.fillStyle = WHITE; ctx.shadowColor = RED_L; ctx.shadowBlur = 20 * U;
+    ctx.fillRect(x - 9 * U, y - 9 * U, 18 * U, 18 * U);
+  }
+  ctx.restore();
+}
+function scene3(t) {
+  const l = t - 8.2;
+  if (l < 0 || l > 6.4) return;
+  const out = 1 - eIn(prog(l, 5.8, 6.3));
+  ctx.save(); ctx.globalAlpha = out;
+  // titre
+  const pt = eOut(prog(l, 0, 0.6));
+  const ty = PORTRAIT ? 260 * U : 120 * U;
+  text('NOS ROUTES', W / 2, ty - (1 - pt) * 30 * U, { size: PORTRAIT ? 70 : 60, weight: 700, alpha: pt, spacing: 8 });
+  ctx.fillStyle = RED; ctx.fillRect(W / 2 - 60 * U * pt, ty + 50 * U, 120 * U * pt, 5 * U);
+
+  let origins, dest;
+  if (PORTRAIT) {
+    const y0 = 620 * U;
+    origins = [[W * .2, y0 + 60 * U, 'CHINE'], [W * .5, y0 - 40 * U, 'DUBAÏ'], [W * .8, y0 + 60 * U, 'TURQUIE']];
+    dest = [W / 2, 1330 * U];
+  } else {
+    origins = [[W * .74, H * .30, 'CHINE'], [W * .84, H * .55, 'DUBAÏ'], [W * .70, H * .76, 'TURQUIE']];
+    dest = [W * .26, H * .56];
+  }
+  const rO = (PORTRAIT ? 105 : 95) * U, rD = (PORTRAIT ? 170 : 150) * U;
+  const subs = ['Asie', 'Émirats', 'Europe / Asie'];
+  origins.forEach(([x, y, n], i) => {
+    const pa = prog(l, 1.6 + i * 0.35, 2.6 + i * 0.35);
+    const bend = (i - 1) * 140 * U + (PORTRAIT ? 0 : 60 * U);
+    // départ au bord du cercle d'origine (approximation : depuis le centre, dessiné sous les nœuds)
+    arc(x, y, dest[0], dest[1], bend, eInOut(pa), (l - 2.6 - i * 0.35) * 0.55 + i * 0.33);
+  });
+  origins.forEach(([x, y, n], i) => node(x, y, rO, n, subs[i], prog(l, 0.4 + i * 0.25, 0.9 + i * 0.25)));
+  node(dest[0], dest[1], rD, 'AFRIQUE', 'Livraison', prog(l, 2.6, 3.2), { main: true });
+
+  // phrase du bas
+  const pb = eOut(prog(l, 3.4, 4.0));
+  const by = PORTRAIT ? 1640 * U : H * .93;
+  if (PORTRAIT) {
+    text('Vos marchandises de Chine, Dubaï et Turquie', W / 2, by + (1 - pb) * 20 * U, { size: 40, weight: 400, alpha: pb, color: '#e6e6e6' });
+    text('jusqu’aux pays africains', W / 2, by + 62 * U + (1 - pb) * 20 * U, { size: 44, weight: 700, alpha: pb, color: RED_L });
+  } else {
+    text('Vos marchandises de Chine, Dubaï et Turquie jusqu’aux pays africains', W / 2, by + (1 - pb) * 20 * U, { size: 36, weight: 500, alpha: pb, color: '#e6e6e6' });
+  }
+  ctx.restore();
+}
+
+// ---------- Scène 4 : slogan (14.5 – 17 s) ----------
+function scene4(t) {
+  const l = t - 14.5;
+  if (l < 0 || l > 2.6) return;
+  const out = 1 - eIn(prog(l, 2.1, 2.5));
+  ctx.save(); ctx.globalAlpha = out;
+  const lines = PORTRAIT ? ['Le monde', 'à portée de', 'votre business'] : ['Le monde à portée', 'de votre business'];
+  const size = PORTRAIT ? 110 : 105;
+  const lh = size * 1.2 * U;
+  const y0 = H / 2 - (lines.length - 1) * lh / 2;
+  lines.forEach((ln, i) => {
+    const p = eOut(prog(l, 0.1 + i * 0.18, 0.7 + i * 0.18));
+    const y = y0 + i * lh;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, y - lh / 2, W, lh); ctx.clip();
+    text(ln, W / 2, y + (1 - p) * lh, { size, weight: 700, color: i === lines.length - 1 ? RED_L : WHITE });
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+// ---------- Scène 5 : contacts (17 – 21 s) ----------
+function waIcon(x, y, r) {
+  ctx.save();
+  ctx.fillStyle = '#25D366';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x - r * .55, y + r * .95); ctx.lineTo(x - r * .2, y + r * .55); ctx.lineTo(x - r * .75, y + r * .35); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = r * 0.14;
+  ctx.beginPath(); ctx.arc(x, y, r * .62, 0, 6.283); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(x, y, r * .2, r * .32, -0.7, 0, 6.283); ctx.fill();
+  ctx.restore();
+}
+function socialIcon(x, y, r, kind) {
+  ctx.save();
+  if (kind === 'ig') {
+    const g = ctx.createLinearGradient(x - r, y + r, x + r, y - r);
+    g.addColorStop(0, '#F58529'); g.addColorStop(.5, '#DD2A7B'); g.addColorStop(1, '#8134AF');
+    ctx.fillStyle = g;
+    roundRect(x - r, y - r, 2 * r, 2 * r, r * .5); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = r * .14;
+    roundRect(x - r * .6, y - r * .6, 1.2 * r, 1.2 * r, r * .35); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, r * .28, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + r * .38, y - r * .38, r * .08, 0, 6.283); ctx.fill();
+  } else {
+    ctx.fillStyle = '#111'; roundRect(x - r, y - r, 2 * r, 2 * r, r * .5); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 2 * U; ctx.stroke();
+    // note de musique stylisée (TikTok) en cyan / rouge / blanc
+    const draw = (dx, dy, c) => {
+      ctx.strokeStyle = c; ctx.lineWidth = r * .18; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x + dx + r * .1, y + dy - r * .55); ctx.lineTo(x + dx + r * .1, y + dy + r * .25); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x + dx - r * .12, y + dy + r * .25, r * .22, 0, 6.283); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + dx + r * .1, y + dy - r * .55); ctx.quadraticCurveTo(x + dx + r * .2, y + dy - r * .2, x + dx + r * .5, y + dy - r * .25); ctx.stroke();
+    };
+    draw(-r * .05, -r * .03, '#25F4EE'); draw(r * .05, r * .03, '#FE2C55'); draw(0, 0, '#fff');
+  }
+  ctx.restore();
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function card(cx, cy, w, h, p, draw) {
+  if (p <= 0) return;
+  const e = eOut(p);
+  ctx.save(); ctx.globalAlpha *= clamp(p * 1.5);
+  ctx.translate(0, (1 - e) * 50 * U);
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  ctx.strokeStyle = 'rgba(211,38,63,0.7)'; ctx.lineWidth = 2.5 * U;
+  roundRect(cx - w / 2, cy - h / 2, w, h, 26 * U); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = RED; ctx.fillRect(cx - w / 2 + 2 * U, cy - h / 2 + 22 * U, 7 * U, h - 44 * U);
+  draw();
+  ctx.restore();
+}
+function scene5(t) {
+  const l = t - 17;
+  if (l < 0) return;
+  if (PORTRAIT) {
+    logo(W / 2, 360 * U, 0.85, 17, t);
+    const pt = eOut(prog(l, 0.6, 1.1));
+    text('CONTACTEZ-NOUS', W / 2, 640 * U, { size: 56, weight: 700, alpha: pt, spacing: 6 });
+    const cw = 900 * U, x0 = W / 2 - cw / 2 + 70 * U;
+    card(W / 2, 900 * U, cw, 300 * U, prog(l, 0.9, 1.5), () => {
+      waIcon(x0 + 40 * U, 820 * U, 42 * U);
+      text('WhatsApp', x0 + 105 * U, 820 * U, { size: 44, weight: 700, align: 'left' });
+      text('+243 975 873 394', x0 + 10 * U, 905 * U, { size: 54, weight: 500, align: 'left' });
+      text('+972 555 172 779', x0 + 10 * U, 980 * U, { size: 54, weight: 500, align: 'left' });
+    });
+    card(W / 2, 1240 * U, cw, 300 * U, prog(l, 1.2, 1.8), () => {
+      socialIcon(x0 + 40 * U, 1160 * U, 38 * U, 'ig');
+      socialIcon(x0 + 140 * U, 1160 * U, 38 * U, 'tt');
+      text('Instagram & TikTok', x0 + 205 * U, 1160 * U, { size: 40, weight: 700, align: 'left' });
+      text('Ming store entreprise', x0 + 10 * U, 1270 * U, { size: 56, weight: 500, align: 'left', color: RED_L });
+    });
+    const pf = eOut(prog(l, 1.9, 2.5));
+    text('Chine  •  Dubaï  •  Turquie  →  Afrique', W / 2, 1560 * U, { size: 38, weight: 400, alpha: pf, color: '#cfcfcf' });
+  } else {
+    logo(W * .27, H * .47, 0.95, 17, t);
+    const pf = eOut(prog(l, 1.9, 2.5));
+    text('Chine • Dubaï • Turquie → Afrique', W * .27, H * .80, { size: 34, weight: 400, alpha: pf, color: '#cfcfcf' });
+    const pt = eOut(prog(l, 0.6, 1.1));
+    const cx = W * .70;
+    text('CONTACTEZ-NOUS', cx, H * .16, { size: 52, weight: 700, alpha: pt, spacing: 6 });
+    const cw = 820 * U, x0 = cx - cw / 2 + 70 * U;
+    const c1 = H * .42, c2 = H * .74;
+    card(cx, c1, cw, 290 * U, prog(l, 0.9, 1.5), () => {
+      waIcon(x0 + 40 * U, c1 - 80 * U, 40 * U);
+      text('WhatsApp', x0 + 100 * U, c1 - 80 * U, { size: 42, weight: 700, align: 'left' });
+      text('+243 975 873 394', x0 + 10 * U, c1 + 5 * U, { size: 52, weight: 500, align: 'left' });
+      text('+972 555 172 779', x0 + 10 * U, c1 + 80 * U, { size: 52, weight: 500, align: 'left' });
+    });
+    card(cx, c2, cw, 240 * U, prog(l, 1.2, 1.8), () => {
+      socialIcon(x0 + 40 * U, c2 - 50 * U, 36 * U, 'ig');
+      socialIcon(x0 + 135 * U, c2 - 50 * U, 36 * U, 'tt');
+      text('Instagram & TikTok', x0 + 195 * U, c2 - 50 * U, { size: 38, weight: 700, align: 'left' });
+      text('Ming store entreprise', x0 + 10 * U, c2 + 50 * U, { size: 52, weight: 500, align: 'left', color: RED_L });
+    });
+  }
+  // fondu final
+  const fo = prog(t, 20.4, 21);
+  if (fo > 0) { ctx.fillStyle = `rgba(0,0,0,${fo})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- Rendu d'une image ----------
+function render(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  background(t);
+  if (t < 4) scene1(t);
+  scene2(t);
+  scene3(t);
+  scene4(t);
+  scene5(t);
+  wipe(t, 3.6);
+  wipe(t, 7.9);
+  wipe(t, 14.2);
+  wipe(t, 16.7);
+}
+window.render = render;
+window.DURATION = DURATION;
+window.ready = document.fonts.load('700 10px P').then(() => Promise.all([300, 400, 500].map(w => document.fonts.load(`${w} 10px P`))));
+
+// Aperçu en direct dans un navigateur (sans ?render)
+if (!params.has('render')) {
+  window.ready.then(() => {
+    const start = performance.now();
+    (function loop() { render(((performance.now() - start) / 1000) % DURATION); requestAnimationFrame(loop); })();
+  });
+}
+</script>
+</body>
+</html>
