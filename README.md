@@ -39,16 +39,15 @@ node render.js 1920 1080 MING_Store_Extrait_YouTube_1920x1080.mp4 30 --page extr
 (`video/sources/parole.mp4`) avec zooms et coupes sur le rythme de la parole, visite des photos (Nike, Starbucks, Dior,
 Coca-Cola), sous-titres mot par mot, effets sur les mots clés, bruitages et écran de fin MING Store.
 
-- `video/montage_timings.js` : minutage de chaque mot, des photos et des bruitages.
+- `video/montage_timings.js` : minutage de chaque mot et des photos.
 - `video/montage.html` : le montage (caméra, sous-titres, effets).
-- `video/montage_audio.py` : voix d'origine + bruitages → `montage.wav`.
+- `video/montage_audio.py` : voix d'origine nettoyée et au bon volume → `montage.wav`.
 
 ```bash
 cd video
 mkdir -p /tmp/images && ffmpeg -i sources/parole.mp4 -q:v 3 /tmp/images/%04d.jpg
 python3 montage_audio.py
-node render.js 1080 1920 montage_brut.mp4 30 --page montage.html --audio montage.wav --frames-dir /tmp/images
-ffmpeg -i montage_brut.mp4 -c:v copy -af loudnorm=I=-14:TP=-1.5 -c:a aac -b:a 192k MING_Store_Montage_Parole_1080x1920.mp4
+node render.js 1080 1920 MING_Store_Montage_Parole_1080x1920.mp4 30 --page montage.html --audio montage.wav --frames-dir /tmp/images
 ```
 
 ## Modifier et refaire la vidéo

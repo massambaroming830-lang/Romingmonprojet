@@ -266,16 +266,12 @@ function effects(t) {
   }
 }
 
-// ---------- Finitions : flash aux transitions, grain, vignette, barre de progression ----------
+// ---------- Finitions : grain, vignette, barre de progression ----------
 const grain = document.createElement('canvas'); grain.width = 270; grain.height = 480;
 const gctx = grain.getContext('2d'), gimg = gctx.createImageData(270, 480);
 let seed = 1;
 const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 function finish(t) {
-  for (const w of M.whoosh) {
-    const p = prog(t, w, w + 0.18);
-    if (p > 0 && p < 1) { ctx.fillStyle = `rgba(255,255,255,${0.45 * (1 - p)})`; ctx.fillRect(0, 0, W, H); }
-  }
   seed = 1 + Math.floor(t * 30) * 7919;
   for (let i = 0; i < gimg.data.length; i += 4) { const v = rand() * 255; gimg.data[i] = gimg.data[i + 1] = gimg.data[i + 2] = v; gimg.data[i + 3] = 255; }
   gctx.putImageData(gimg, 0, 0);
