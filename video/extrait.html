@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>MING Store – extrait</title>
+<style>
+  @font-face { font-family: P; font-weight: 300; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Light.ttf"); }
+  @font-face { font-family: P; font-weight: 400; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Regular.ttf"); }
+  @font-face { font-family: P; font-weight: 500; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Medium.ttf"); }
+  @font-face { font-family: P; font-weight: 700; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Bold.ttf"); }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<!-- window.TIMINGS / window.DURATION : minutage de la voix off, généré par extrait_audio.py -->
+<script src="extrait_timings.js"></script>
+<script>
+// Extrait MING Store : chaque mot du texte apparaît à l'instant exact où il est prononcé.
+const params = new URLSearchParams(location.search);
+const W = +params.get('w') || 1080;
+const H = +params.get('h') || 1920;
+const DURATION = window.DURATION;
+const RED = '#A3192F', RED_L = '#D3263F', WHITE = '#FFFFFF', GREY = '#9a9a9a', BG = '#060606';
+
+const cv = document.getElementById('c');
+cv.width = W; cv.height = H;
+const ctx = cv.getContext('2d');
+const PORTRAIT = H > W;
+const U = Math.min(W, H) / 1080;
+
+// ---------- Minutage ----------
+const SC = {};
+TIMINGS.forEach((s, i) => { s.next = TIMINGS[i + 1] ? TIMINGS[i + 1].s : DURATION; SC[s.scene] = s; });
+const wt = (scene, i) => SC[scene].words[i].s;          // début du mot i de la scène
+const active = (scene, t) => t >= SC[scene].s - 0.3 && t < SC[scene].next - 0.05;
+const fadeOut = (scene, t) => 1 - eIn(prog(t, SC[scene].next - 0.35, SC[scene].next - 0.05));
+
+// ---------- Outils ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const eBack = x => { const c = 2.2; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const lerp = (a, b, x) => a + (b - a) * x;
+function rnd(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+
+function font(size, weight = 700) { ctx.font = `${weight} ${size * U}px P`; }
+function text(str, x, y, { size = 60, weight = 700, color = WHITE, align = 'center', alpha = 1, spacing = 0, stroke = null } = {}) {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  font(size, weight);
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${spacing * U}px`;
+  if (stroke) { ctx.lineWidth = 4 * U; ctx.strokeStyle = stroke; ctx.strokeText(str, x, y); }
+  else { ctx.fillStyle = color; ctx.fillText(str, x, y); }
+  ctx.restore();
+}
+function measure(str, size, weight = 700, spacing = 0) {
+  font(size, weight);
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${spacing * U}px`;
+  const w = ctx.measureText(str).width;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+  return w;
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+// Mot qui « claque » à l'écran au moment où il est dit : zoom avec rebond + léger flou de mouvement
+function pop(str, x, y, t0, t, opts = {}) {
+  const p = prog(t, t0 - 0.04, t0 + 0.26);
+  if (p <= 0) return;
+  const s = eBack(p);
+  ctx.save(); ctx.translate(x, y); ctx.rotate((opts.rot || 0)); ctx.scale(s, s);
+  if (p < 1) text(str, 0, 0, { ...opts, alpha: (opts.alpha ?? 1) * 0.25, size: (opts.size || 60) * 1.12 });
+  text(str, 0, 0, { ...opts, alpha: (opts.alpha ?? 1) * clamp(p * 3) });
+  ctx.restore();
+}
+// Mot qui monte derrière un masque
+function rise(str, x, y, t0, t, opts = {}) {
+  const p = eOut(prog(t, t0 - 0.05, t0 + 0.3));
+  if (p <= 0) return;
+  const h = (opts.size || 60) * U * 1.3;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, y - h / 2, W, h); ctx.clip();
+  text(str, x, y + (1 - p) * h, opts);
+  ctx.restore();
+}
+
+// ---------- Fond ----------
+const R = rnd(42);
+const particles = Array.from({ length: 70 }, () => ({
+  x: R(), y: R(), r: (R() * 3 + 1), sp: R() * 0.04 + 0.01, ph: R() * 6.28, a: R() * 0.5 + 0.15
+}));
+function background(t) {
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const g = ctx.createRadialGradient(W * .5, H * .5, 0, W * .5, H * .5, Math.max(W, H) * .7);
+  // le halo bat au rythme de la musique (120 BPM)
+  const beat = Math.exp(-((t % 0.5) * 9));
+  g.addColorStop(0, `rgba(163,25,47,${0.16 + (t > 2 ? 0.07 * beat : 0)})`);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (const p of particles) {
+    const y = ((p.y - t * p.sp) % 1 + 1) % 1;
+    const x = p.x + Math.sin(t * .5 + p.ph) * .01;
+    ctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(t * 2 + p.ph));
+    ctx.fillStyle = p.r > 3 ? RED_L : '#ffffff';
+    ctx.beginPath(); ctx.arc(x * W, y * H, p.r * U, 0, 6.283); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .75);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.75)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+}
+
+// ---------- Logo MING Store (même dessin que la vidéo principale) ----------
+function logo(cx, cy, scale, t0, t, { alpha = 1 } = {}) {
+  const s = 150 * scale;
+  const wMing = measure('MING', s, 500), wStore = measure('Store', s, 500);
+  const total = wMing * 0.55 + wStore;
+  const left = cx - total / 2;
+  const yM = cy - s * U * 0.42, yS = cy + s * U * 0.55;
+  ctx.save(); ctx.globalAlpha *= alpha;
+  let x = left;
+  'MING'.split('').forEach((ch, i) => {
+    const p = eOut(prog(t, t0 + i * 0.05, t0 + i * 0.05 + 0.3));
+    text(ch, x, yM + (1 - p) * 60 * U, { size: s, weight: 500, align: 'left', alpha: p });
+    x += measure(ch, s, 500);
+  });
+  const p2 = eOut(prog(t, t0 + 0.22, t0 + 0.6));
+  const xs = left + wMing * 0.55 + (1 - p2) * 120 * U;
+  const wSto = measure('Sto', s, 500);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(left + wMing * 0.55 - 10 * U, yS - s * U, (wStore + 40 * U) * p2 + 1, s * U * 2); ctx.clip();
+  text('Sto', xs, yS, { size: s, weight: 500, align: 'left', color: RED });
+  text('re', xs + wSto, yS, { size: s, weight: 500, align: 'left' });
+  ctx.restore();
+  ctx.restore();
+  return { left, right: left + total, top: yM - s * U * 0.5, bottom: yS + s * U * 0.55 };
+}
+
+// ---------- Icônes ----------
+function waIcon(x, y, r) {
+  ctx.save();
+  ctx.fillStyle = '#25D366';
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x - r * .55, y + r * .95); ctx.lineTo(x - r * .2, y + r * .55); ctx.lineTo(x - r * .75, y + r * .35); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = r * 0.14;
+  ctx.beginPath(); ctx.arc(x, y, r * .62, 0, 6.283); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.ellipse(x, y, r * .2, r * .32, -0.7, 0, 6.283); ctx.fill();
+  ctx.restore();
+}
+function socialIcon(x, y, r, kind) {
+  ctx.save();
+  if (kind === 'ig') {
+    const g = ctx.createLinearGradient(x - r, y + r, x + r, y - r);
+    g.addColorStop(0, '#F58529'); g.addColorStop(.5, '#DD2A7B'); g.addColorStop(1, '#8134AF');
+    ctx.fillStyle = g;
+    roundRect(x - r, y - r, 2 * r, 2 * r, r * .5); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = r * .14;
+    roundRect(x - r * .6, y - r * .6, 1.2 * r, 1.2 * r, r * .35); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, r * .28, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + r * .38, y - r * .38, r * .08, 0, 6.283); ctx.fill();
+  } else {
+    ctx.fillStyle = '#111'; roundRect(x - r, y - r, 2 * r, 2 * r, r * .5); ctx.fill();
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 2 * U; ctx.stroke();
+    const draw = (dx, dy, c) => {
+      ctx.strokeStyle = c; ctx.lineWidth = r * .18; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x + dx + r * .1, y + dy - r * .55); ctx.lineTo(x + dx + r * .1, y + dy + r * .25); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x + dx - r * .12, y + dy + r * .25, r * .22, 0, 6.283); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + dx + r * .1, y + dy - r * .55); ctx.quadraticCurveTo(x + dx + r * .2, y + dy - r * .2, x + dx + r * .5, y + dy - r * .25); ctx.stroke();
+    };
+    draw(-r * .05, -r * .03, '#25F4EE'); draw(r * .05, r * .03, '#FE2C55'); draw(0, 0, '#fff');
+  }
+  ctx.restore();
+}
+function iconPop(t0, t, x, y, drawFn) {
+  const p = prog(t, t0 - 0.05, t0 + 0.3);
+  if (p <= 0) return;
+  const s = eBack(p);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.translate(-x, -y); drawFn(); ctx.restore();
+}
+
+// ---------- Transition : volet rouge entre deux phrases ----------
+function wipe(t, tc, dur = 0.5) {
+  const p = prog(t, tc - dur / 2, tc + dur / 2);
+  if (p <= 0 || p >= 1) return;
+  const a = eInOut(p), skew = 0.25 * W;
+  const x0 = lerp(-W - skew, W + skew, a);
+  ctx.fillStyle = RED;
+  ctx.beginPath();
+  ctx.moveTo(x0, 0); ctx.lineTo(x0 + W, 0); ctx.lineTo(x0 + W - skew, H); ctx.lineTo(x0 - skew, H); ctx.closePath();
+  ctx.fill();
+}
+
+// ---------- Scènes (une par phrase) ----------
+const CX = W / 2, CY = H / 2;
+
+// « Un projet d'import-export en tête ? »
+function sProjet(t) {
+  if (!active('projet', t)) return;
+  ctx.save(); ctx.globalAlpha = fadeOut('projet', t);
+  const k = PORTRAIT ? 1 : 0.85, y = CY - 200 * U * k;
+  pop('UN', CX, y - 230 * U * k, wt('projet', 0), t, { size: 90 * k, weight: 300 });
+  pop('PROJET', CX, y - 110 * U * k, wt('projet', 1), t, { size: 170 * k });
+  pop("D'IMPORT", CX, y + 50 * U * k, wt('projet', 2), t, { size: 120 * k, color: RED_L });
+  pop('EXPORT', CX, y + 170 * U * k, wt('projet', 2) + 0.35, t, { size: 120 * k, stroke: RED_L });
+  pop('EN TÊTE ?', CX, y + 330 * U * k, wt('projet', 3), t, { size: 120 * k, rot: -0.06 });
+  // ampoule d'idée qui s'allume sur « tête »
+  const pl = prog(t, wt('projet', 4), wt('projet', 4) + 0.3);
+  if (pl > 0) {
+    const ly = y + 480 * U * k;
+    ctx.save(); ctx.globalAlpha *= pl;
+    ctx.shadowColor = RED_L; ctx.shadowBlur = 40 * U * pl;
+    ctx.fillStyle = RED_L; ctx.beginPath(); ctx.arc(CX, ly, 34 * U * eBack(pl), 0, 6.283); ctx.fill();
+    ctx.restore();
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4, r0 = 50 * U, r1 = r0 + 30 * U * eOut(pl);
+      ctx.strokeStyle = `rgba(211,38,63,${pl})`; ctx.lineWidth = 5 * U; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(CX + Math.cos(a) * r0, ly + Math.sin(a) * r0); ctx.lineTo(CX + Math.cos(a) * r1, ly + Math.sin(a) * r1); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// Pays : pastille ronde qui apparaît avec son nom
+function countryNode(x, y, r, label, t0, t) {
+  const p = prog(t, t0 - 0.05, t0 + 0.3);
+  if (p <= 0) return;
+  const s = eBack(p);
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.globalAlpha *= clamp(p * 2);
+  ctx.strokeStyle = RED_L; ctx.lineWidth = 4 * U;
+  ctx.fillStyle = '#151515';
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.283); ctx.fill(); ctx.stroke();
+  // onde qui part au moment du mot
+  const w = prog(t, t0, t0 + 0.8);
+  if (w < 1) {
+    ctx.save(); ctx.globalAlpha *= 1 - w;
+    ctx.beginPath(); ctx.arc(0, 0, r * (1 + w * 0.6), 0, 6.283); ctx.stroke();
+    ctx.restore();
+  }
+  text(label, 0, 0, { size: r / U * 0.34, weight: 700 });
+  ctx.restore();
+}
+
+// « Vous voulez acheter en Chine, à Dubaï ou en Turquie ? »
+function sPays(t) {
+  if (!active('pays', t)) return;
+  ctx.save(); ctx.globalAlpha = fadeOut('pays', t);
+  const ty = PORTRAIT ? CY - 520 * U : CY - 330 * U;
+  rise('VOUS VOULEZ', CX, ty, wt('pays', 0), t, { size: 70, weight: 300 });
+  rise('ACHETER', CX, ty + 120 * U, wt('pays', 2), t, { size: 140, color: RED_L });
+  const r = (PORTRAIT ? 130 : 115) * U;
+  const pts = PORTRAIT
+    ? [[CX - 250 * U, CY + 60 * U], [CX + 250 * U, CY + 60 * U], [CX, CY + 400 * U]]
+    : [[CX - 420 * U, CY + 120 * U], [CX, CY + 160 * U], [CX + 420 * U, CY + 120 * U]];
+  countryNode(...pts[0], r, 'CHINE', wt('pays', 4), t);
+  countryNode(...pts[1], r, 'DUBAÏ', wt('pays', 6), t);
+  countryNode(...pts[2], r, 'TURQUIE', wt('pays', 9), t);
+  ctx.restore();
+}
+
+// « Vous êtes au bon endroit ! » : épingle de carte qui tombe sur « endroit »
+function sEndroit(t) {
+  if (!active('endroit', t)) return;
+  ctx.save(); ctx.globalAlpha = fadeOut('endroit', t);
+  const y = CY - (PORTRAIT ? 160 : 60) * U;
+  pop('VOUS ÊTES', CX, y - 300 * U, wt('endroit', 0), t, { size: 100, weight: 300 });
+  pop('AU BON', CX, y - 170 * U, wt('endroit', 2), t, { size: 130 });
+  pop('ENDROIT !', CX, y - 20 * U, wt('endroit', 4), t, { size: 160, color: RED_L });
+  // épingle
+  const t0 = wt('endroit', 4) - 0.1;
+  const pd = prog(t, t0, t0 + 0.35);
+  if (pd > 0) {
+    const py = y + 330 * U - (1 - eIn(pd)) * 600 * U;
+    const sq = pd >= 1 ? 1 + 0.15 * Math.exp(-(t - t0 - 0.35) * 12) * Math.sin((t - t0) * 40) : 1;
+    // ombre au sol
+    ctx.fillStyle = 'rgba(211,38,63,0.35)';
+    ctx.beginPath(); ctx.ellipse(CX, y + 340 * U, 70 * U * pd, 18 * U * pd, 0, 0, 6.283); ctx.fill();
+    ctx.save(); ctx.translate(CX, py); ctx.scale(1 / sq, sq);
+    ctx.fillStyle = RED_L;
+    ctx.beginPath(); ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(-30 * U, -60 * U, -75 * U, -95 * U, -75 * U, -150 * U);
+    ctx.arc(0, -150 * U, 75 * U, Math.PI, 0);
+    ctx.bezierCurveTo(75 * U, -95 * U, 30 * U, -60 * U, 0, 0); ctx.fill();
+    ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(0, -150 * U, 30 * U, 0, 6.283); ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// « Ming Store, votre partenaire du commerce international. »
+function sMing(t) {
+  if (!active('ming', t)) return;
+  ctx.save(); ctx.globalAlpha = fadeOut('ming', t);
+  const k = PORTRAIT ? 1.1 : 0.95;
+  const box = logo(CX, CY - 180 * U, k, wt('ming', 0) - 0.08, t);
+  const pu = eOut(prog(t, wt('ming', 1), wt('ming', 1) + 0.4));
+  const uw = (box.right - box.left) * pu;
+  ctx.fillStyle = RED; ctx.fillRect(CX - uw / 2, box.bottom + 30 * U, uw, 6 * U);
+  const y = box.bottom + 120 * U;
+  rise('VOTRE PARTENAIRE', CX, y, wt('ming', 2), t, { size: PORTRAIT ? 72 : 64, weight: 700 });
+  rise('DU COMMERCE', CX, y + 95 * U, wt('ming', 5), t, { size: PORTRAIT ? 72 : 64, weight: 300 });
+  rise('INTERNATIONAL', CX, y + 190 * U, wt('ming', 6), t, { size: PORTRAIT ? 80 : 70, color: RED_L });
+  ctx.restore();
+}
+
+// « On livre vos marchandises jusqu'aux pays africains. » : colis qui voyage vers l'Afrique
+function sAfrique(t) {
+  if (!active('afrique', t)) return;
+  ctx.save(); ctx.globalAlpha = fadeOut('afrique', t);
+  const ty = PORTRAIT ? CY - 600 * U : CY - 380 * U;
+  rise('ON LIVRE', CX, ty, wt('afrique', 1), t, { size: 110 });
+  rise('VOS MARCHANDISES', CX, ty + 110 * U, wt('afrique', 3), t, { size: 80, weight: 300 });
+  // trajet en pointillés tracé sur « jusqu'aux », colis qui voyage jusqu'à l'Afrique sur « africains »
+  const ax = CX - (PORTRAIT ? 330 : 520) * U, ay = CY - 40 * U;
+  const r = 150 * U, dy = CY + (PORTRAIT ? 330 : 250) * U;
+  const qx = CX + (PORTRAIT ? 260 : 420) * U, qy = ay - 60 * U;
+  const pt = u => [(1 - u) * (1 - u) * ax + 2 * (1 - u) * u * qx + u * u * CX,
+                   (1 - u) * (1 - u) * ay + 2 * (1 - u) * u * qy + u * u * (dy - r)];
+  const p = eInOut(prog(t, wt('afrique', 4), wt('afrique', 6) + 0.1));
+  ctx.strokeStyle = 'rgba(211,38,63,0.85)'; ctx.lineWidth = 5 * U; ctx.setLineDash([16 * U, 12 * U]);
+  ctx.beginPath();
+  for (let i = 0; i <= 60 * p; i++) { const [x, y] = pt(i / 60); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke(); ctx.setLineDash([]);
+  // colis
+  const [px, py] = pt(p), bob = Math.sin(t * 20) * 4 * U * (p > 0 && p < 1);
+  const pb = prog(t, wt('afrique', 1) - 0.05, wt('afrique', 1) + 0.25);
+  if (pb > 0) {
+    const s = eBack(pb) * 60 * U * (1 - 0.4 * p);
+    ctx.save(); ctx.translate(px, py - s * 0.9 + bob);
+    ctx.fillStyle = '#c8894a'; ctx.fillRect(-s, -s * 0.8, 2 * s, 1.6 * s);
+    ctx.fillStyle = '#a86d35'; ctx.fillRect(-s * 0.15, -s * 0.8, s * 0.3, 1.6 * s);
+    ctx.strokeStyle = '#7a4b22'; ctx.lineWidth = 3 * U; ctx.strokeRect(-s, -s * 0.8, 2 * s, 1.6 * s);
+    ctx.restore();
+  }
+  // destination
+  const pd = prog(t, wt('afrique', 6) - 0.05, wt('afrique', 6) + 0.3);
+  if (pd > 0) {
+    ctx.save(); ctx.globalAlpha *= clamp(pd * 2);
+    ctx.fillStyle = RED; ctx.strokeStyle = RED_L; ctx.lineWidth = 5 * U;
+    ctx.beginPath(); ctx.arc(CX, dy, r * eBack(pd), 0, 6.283); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    pop('AFRIQUE', CX, dy - 12 * U, wt('afrique', 6), t, { size: 52 });
+    pop('livraison', CX, dy + 42 * U, wt('afrique', 6) + 0.1, t, { size: 28, weight: 400, color: '#ffd9de' });
+  }
+  ctx.restore();
+}
+
+// « Import, export, livraison : »
+function sServices(t) {
+  if (!active('services', t)) return;
+  ctx.save(); ctx.globalAlpha = fadeOut('services', t);
+  const big = PORTRAIT ? 170 : 150, gap = big * 1.15 * U;
+  // chaque mot arrive d'un côté différent, comme un coup de poing
+  const items = [['IMPORT', -1, WHITE], ['EXPORT', 1, RED_L], ['LIVRAISON', -1, WHITE]];
+  items.forEach(([w, dir, c], i) => {
+    const t0 = wt('services', i), p = eOut(prog(t, t0 - 0.06, t0 + 0.2));
+    if (p <= 0) return;
+    const y = CY + (i - 1) * gap;
+    const x = CX + dir * (1 - p) * W;
+    text(w, x, y, { size: big * (w === 'LIVRAISON' ? 0.82 : 1), color: c });
+    // flash au contact
+    const f = prog(t, t0 + 0.2, t0 + 0.45);
+    if (f > 0 && f < 1) {
+      ctx.fillStyle = `rgba(255,255,255,${0.12 * (1 - f)})`; ctx.fillRect(0, y - gap / 2, W, gap);
+    }
+  });
+  ctx.restore();
+}
+
+// « le monde à portée de votre business ! » : globe qui tourne
+function sMonde(t) {
+  if (!active('monde', t)) return;
+  ctx.save(); ctx.globalAlpha = fadeOut('monde', t);
+  const gy = PORTRAIT ? CY - 300 * U : CY - 270 * U, r = (PORTRAIT ? 230 : 130) * U;
+  const pg = eBack(prog(t, wt('monde', 1) - 0.05, wt('monde', 1) + 0.35));
+  if (pg > 0) {
+    ctx.save(); ctx.translate(CX, gy); ctx.scale(pg, pg);
+    ctx.strokeStyle = RED_L; ctx.lineWidth = 4 * U;
+    ctx.fillStyle = 'rgba(163,25,47,0.25)';
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.283); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.283); ctx.clip();
+    ctx.lineWidth = 2.5 * U; ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.ellipse(0, i * r * 0.36, r * Math.sqrt(1 - (i * 0.36) ** 2), r * 0.06, 0, 0, 6.283); ctx.stroke(); }
+    for (let i = 0; i < 6; i++) {
+      const ph = ((t * 0.35 + i / 6) % 1) * Math.PI;
+      ctx.beginPath(); ctx.ellipse(0, 0, Math.abs(Math.cos(ph)) * r, r, 0, 0, 6.283); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  const y = gy + r + (PORTRAIT ? 140 : 100) * U;
+  pop('LE MONDE', CX, y, wt('monde', 1), t, { size: PORTRAIT ? 120 : 100 });
+  pop('À PORTÉE DE', CX, y + 120 * U, wt('monde', 3), t, { size: PORTRAIT ? 80 : 70, weight: 300 });
+  pop('VOTRE BUSINESS !', CX, y + 230 * U, wt('monde', 5), t, { size: PORTRAIT ? 100 : 90, color: RED_L });
+  ctx.restore();
+}
+
+// « Pour nous contacter, écrivez-nous sur WhatsApp, »
+function sWhatsapp(t) {
+  if (!active('whatsapp', t)) return;
+  ctx.save(); ctx.globalAlpha = fadeOut('whatsapp', t);
+  const y = PORTRAIT ? CY - 420 * U : CY - 300 * U;
+  rise('POUR NOUS', CX, y, wt('whatsapp', 0), t, { size: 80, weight: 300 });
+  rise('CONTACTER', CX, y + 110 * U, wt('whatsapp', 2), t, { size: 140, color: RED_L });
+  rise('écrivez-nous sur', CX, y + 230 * U, wt('whatsapp', 3), t, { size: 56, weight: 400, color: '#dddddd' });
+  const t0 = wt('whatsapp', 5);
+  const iy = y + (PORTRAIT ? 430 : 380) * U;
+  iconPop(t0, t, CX, iy, () => waIcon(CX, iy, 90 * U));
+  const pn = eOut(prog(t, t0 + 0.1, t0 + 0.45));
+  const ny = iy + (PORTRAIT ? 190 : 160) * U;
+  text('+243 975 873 394', CX, ny + (1 - pn) * 30 * U, { size: 64, weight: 500, alpha: pn });
+  text('+972 555 172 779', CX, ny + 90 * U + (1 - pn) * 30 * U, { size: 64, weight: 500, alpha: pn });
+  ctx.restore();
+}
+
+// « ou sur Instagram et TikTok : Ming Store Entreprise ! » + écran final
+function sReseaux(t) {
+  if (t < SC.reseaux.s - 0.3) return;
+  const top = PORTRAIT ? CY - 560 * U : CY - 330 * U;
+  const ig = wt('reseaux', 2), tk = wt('reseaux', 4);
+  iconPop(ig, t, CX - 120 * U, top, () => socialIcon(CX - 120 * U, top, 80 * U, 'ig'));
+  iconPop(tk, t, CX + 120 * U, top, () => socialIcon(CX + 120 * U, top, 80 * U, 'tt'));
+  pop('Instagram', CX - 120 * U, top + 130 * U, ig, t, { size: 40, weight: 500 });
+  pop('TikTok', CX + 120 * U, top + 130 * U, tk, t, { size: 40, weight: 500 });
+  const box = logo(CX, CY + (PORTRAIT ? 20 : 60) * U, PORTRAIT ? 1.1 : 0.9, wt('reseaux', 5) - 0.08, t);
+  const pe = prog(t, wt('reseaux', 7) - 0.05, wt('reseaux', 7) + 0.3);
+  if (pe > 0) {
+    const s = eBack(pe), y = box.bottom + 90 * U;
+    ctx.save(); ctx.translate(CX, y); ctx.scale(s, s);
+    const tw = measure('ENTREPRISE', 64, 700, 14) + 80 * U;
+    ctx.fillStyle = RED; roundRect(-tw / 2, -50 * U, tw, 100 * U, 50 * U); ctx.fill();
+    text('ENTREPRISE', 0, 2 * U, { size: 64, spacing: 14 });
+    ctx.restore();
+  }
+  // rappel des routes à la fin
+  const pf = eOut(prog(t, SC.reseaux.e + 0.1, SC.reseaux.e + 0.6));
+  text('Chine  •  Dubaï  •  Turquie  →  Afrique', CX, box.bottom + (PORTRAIT ? 250 : 200) * U, { size: 40, weight: 400, alpha: pf, color: '#cfcfcf' });
+  const fo = prog(t, DURATION - 0.7, DURATION);
+  if (fo > 0) { ctx.fillStyle = `rgba(0,0,0,${fo})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- Sous-titres karaoké : la phrase en cours, le mot prononcé en rouge ----------
+function subtitles(t) {
+  const sc = TIMINGS.find(s => t >= s.s - 0.05 && t < s.e + 0.25);
+  if (!sc) return;
+  const size = PORTRAIT ? 46 : 38, sp = size * 0.32 * U;
+  const maxW = W * 0.86;
+  // découpe en lignes
+  const lines = [[]]; let lw = 0;
+  sc.words.forEach(w => {
+    w = { ...w, w: w.w.replace(/([?!:])$/, '\u202f$1') };
+    const ww = measure(w.w, size, 700);
+    if (lw + ww > maxW && lines[lines.length - 1].length) { lines.push([]); lw = 0; }
+    lines[lines.length - 1].push({ ...w, ww }); lw += ww + sp;
+  });
+  const lh = size * 1.35 * U;
+  const by = PORTRAIT ? H - 300 * U : H - 110 * U;
+  const y0 = by - (lines.length - 1) * lh;
+  const a = clamp(prog(t, sc.s - 0.05, sc.s + 0.1)) * (1 - prog(t, sc.e + 0.1, sc.e + 0.25));
+  ctx.save(); ctx.globalAlpha = a;
+  const boxW = Math.max(...lines.map(l => l.reduce((s, w) => s + w.ww + sp, -sp))) + 60 * U;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  roundRect(CX - boxW / 2, y0 - lh * 0.75, boxW, lh * (lines.length + 0.5), 22 * U); ctx.fill();
+  lines.forEach((l, i) => {
+    let x = CX - l.reduce((s, w) => s + w.ww + sp, -sp) / 2;
+    l.forEach(w => {
+      const on = t >= w.s, cur = on && t < w.e + 0.05;
+      const lift = cur ? 6 * U * Math.sin(Math.PI * prog(t, w.s, w.e)) : 0;
+      ctx.save(); ctx.translate(x + w.ww / 2, y0 + i * lh - lift);
+      text(w.w, 0, 0, { size, weight: 700, color: cur ? RED_L : on ? WHITE : 'rgba(255,255,255,0.45)' });
+      ctx.restore();
+      x += w.ww + sp;
+    });
+  });
+  ctx.restore();
+}
+
+// ---------- Rendu d'une image ----------
+function render(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  background(t);
+  sProjet(t); sPays(t); sEndroit(t); sMing(t); sAfrique(t);
+  sServices(t); sMonde(t); sWhatsapp(t); sReseaux(t);
+  subtitles(t);
+  for (const s of TIMINGS.slice(1)) wipe(t, s.s - 0.16, 0.4);
+}
+window.render = render;
+window.ready = document.fonts.load('700 10px P').then(() => Promise.all([300, 400, 500].map(w => document.fonts.load(`${w} 10px P`))));
+
+// Aperçu en direct avec le son (sans ?render) : cliquer pour lancer
+if (!params.has('render')) {
+  const audio = new Audio('extrait.wav');
+  window.ready.then(() => {
+    render(0);
+    addEventListener('click', () => { audio.currentTime = 0; audio.play(); });
+    (function loop() { render(audio.currentTime || 0); requestAnimationFrame(loop); })();
+  });
+}
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 // Rend animation.html en MP4.
-// Usage : node render.js <largeur> <hauteur> <sortie.mp4> [fps] [--frames t1,t2,...]
+// Usage : node render.js <largeur> <hauteur> <sortie.mp4> [fps] [--frames t1,t2,...] [--page extrait.html --audio extrait.wav]
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -9,10 +9,12 @@ const path = require('path');
   const W = +w, H = +h, FPS = +(fpsArg || 30);
   const stillsIdx = process.argv.indexOf('--frames');
   const stills = stillsIdx > 0 ? process.argv[stillsIdx + 1].split(',').map(Number) : null;
+  const opt = (name, def) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : def; };
+  const PAGE = opt('--page', 'animation.html'), AUDIO = opt('--audio', 'music.wav');
 
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: W, height: H } });
-  const url = 'file://' + path.resolve(__dirname, 'animation.html') + `?w=${W}&h=${H}&render=1`;
+  const url = 'file://' + path.resolve(__dirname, PAGE) + `?w=${W}&h=${H}&render=1`;
   await page.goto(url);
   await page.evaluate(() => window.ready);
   const duration = await page.evaluate(() => window.DURATION);
@@ -30,7 +32,7 @@ const path = require('path');
   }
 
   const ff = spawn('ffmpeg', ['-y', '-f', 'image2pipe', '-framerate', String(FPS), '-i', '-',
-    '-i', path.resolve(__dirname, 'music.wav'), '-shortest',
+    '-i', path.resolve(__dirname, AUDIO), '-shortest',
     '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p',
     '-c:a', 'aac', '-movflags', '+faststart', out], { stdio: ['pipe', 'inherit', 'inherit'] });
 
