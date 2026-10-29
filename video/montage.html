@@ -144,12 +144,12 @@ function photoTour(t) {
   // étiquette avec le nom de la marque
   const pl = eBack(prog(t, p.t, p.t + 0.25));
   if (pl > 0) {
-    font(54, 700);
-    const w = ctx.measureText(p.name).width + 60 * U;
-    ctx.save(); ctx.translate(X0 + w / 2 + 10 * U, Y1 + 60 * U); ctx.scale(pl, pl);
-    ctx.fillStyle = RED_L; roundRect(-w / 2, -42 * U, w, 84 * U, 16 * U); ctx.fill();
+    font(34, 700);
+    const w = ctx.measureText(p.name).width + 36 * U;
+    ctx.save(); ctx.translate(X0 + w / 2 + 10 * U, Y1 + 44 * U); ctx.scale(pl, pl);
+    ctx.fillStyle = RED_L; roundRect(-w / 2, -28 * U, w, 56 * U, 10 * U); ctx.fill();
     ctx.fillStyle = WHITE; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(p.name, 0, 4 * U);
+    ctx.fillText(p.name, 0, 3 * U);
     ctx.restore();
   }
   ctx.restore();
@@ -162,21 +162,28 @@ const G = M.groups.map((g, i) => ({
 }));
 const wordEnd = (g, j) => g.words[j + 1] ? g.words[j + 1][1] : g.e;
 let lastLayout = null;        // position des mots du sous-titre affiché (pour les effets)
+// Groupes qui commencent une phrase : majuscule au premier mot, le reste en minuscules
+const SENTENCE_START = new Set([0, 2, 6, 12]);
+const display = (gi, j, w) => {
+  const l = w.toLowerCase();
+  return SENTENCE_START.has(gi) && j === 0 ? l[0].toUpperCase() + l.slice(1) : l;
+};
 function captions(t) {
   lastLayout = null;
-  const g = G.find(g => t >= g.s && t < g.e);
-  if (!g) return;
-  const size = g.words.length === 1 ? 130 : 92;
-  font(size, 700);
-  const sp = size * 0.42 * U, maxW = W * 0.88;
+  const gi = G.findIndex(g => t >= g.s && t < g.e);
+  if (gi < 0) return;
+  const g = G[gi];
+  // texte simple et discret : blanc, taille modeste, léger contour pour rester lisible
+  const size = 54;
+  font(size, 500);
+  const sp = size * 0.3 * U, maxW = W * 0.84;
   const lines = [[]]; let lw = 0;
   g.words.forEach(([w, ws], j) => {
-    // un mot mis en couleur grossit : on lui réserve un peu plus de place
-    const ww = ctx.measureText(w).width * (g.hl.includes(w.replace(/[,…]/g, '')) ? 1.12 : 1);
+    const txt = display(gi, j, w), ww = ctx.measureText(txt).width;
     if (lw + ww > maxW && lines.at(-1).length) { lines.push([]); lw = 0; }
-    lines.at(-1).push({ w, ws, j, ww }); lw += ww + sp;
+    lines.at(-1).push({ w, txt, ws, ww }); lw += ww + sp;
   });
-  const lh = size * 1.12 * U, y0 = H * 0.765 - (lines.length - 1) * lh / 2;
+  const lh = size * 1.3 * U, y0 = H * 0.78 - (lines.length - 1) * lh / 2;
   const out = 1 - prog(t, g.e - 0.08, g.e);
   lastLayout = [];
   ctx.save();
@@ -184,23 +191,17 @@ function captions(t) {
   lines.forEach((l, i) => {
     let x = W / 2 - l.reduce((a, w) => a + w.ww + sp, -sp) / 2;
     l.forEach(w => {
-      const p = prog(t, w.ws - 0.03, w.ws + 0.16);
+      const p = prog(t, w.ws - 0.03, w.ws + 0.1);
       const cx = x + w.ww / 2, cy = y0 + i * lh;
       x += w.ww + sp;
       if (p <= 0) return;
-      const hl = g.hl.includes(w.w.replace(/[,…]/g, ''));
-      const cur = t < wordEnd(g, w.j);
-      const color = hl ? (w.w === 'ERREURS' ? RED_L : YELLOW) : WHITE;
-      const s = eBack(p) * (cur && hl ? 1.08 : 1);
       lastLayout.push({ w: w.w, ws: w.ws, x: cx, y: cy, ww: w.ww, size });
-      ctx.save(); ctx.translate(cx, cy + (1 - eOut(p)) * 30 * U); ctx.scale(s, s);
-      ctx.globalAlpha = clamp(p * 3) * out;
-      font(size, 700);
-      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 18 * U; ctx.shadowOffsetY = 6 * U;
-      ctx.lineWidth = 14 * U; ctx.strokeStyle = '#000'; ctx.strokeText(w.w, 0, 0);
+      ctx.globalAlpha = p * out;
+      font(size, 500);
+      ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 10 * U; ctx.shadowOffsetY = 2 * U;
+      ctx.lineWidth = 5 * U; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(w.txt, cx, cy);
       ctx.shadowColor = 'transparent';
-      ctx.fillStyle = color; ctx.fillText(w.w, 0, 0);
-      ctx.restore();
+      ctx.fillStyle = WHITE; ctx.fillText(w.txt, cx, cy);
     });
   });
   ctx.restore();

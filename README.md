@@ -37,7 +37,7 @@ node render.js 1920 1080 MING_Store_Extrait_YouTube_1920x1080.mp4 30 --page extr
 
 [`video/MING_Store_Montage_Parole_1080x1920.mp4`](video/MING_Store_Montage_Parole_1080x1920.mp4) : montage de la vidéo face caméra
 (`video/sources/parole.mp4`) avec zooms et coupes sur le rythme de la parole, visite des photos (Nike, Starbucks, Dior,
-Coca-Cola), sous-titres mot par mot, effets sur les mots clés, bruitages et écran de fin MING Store.
+Coca-Cola), sous-titres simples et discrets mot par mot, effets sur les mots clés, bruitages et écran de fin MING Store.
 
 - `video/montage_timings.js` : minutage de chaque mot et des photos.
 - `video/montage.html` : le montage (caméra, sous-titres, effets).
