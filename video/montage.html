@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Montage parole</title>
+<style>
+  @font-face { font-family: P; font-weight: 400; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Regular.ttf"); }
+  @font-face { font-family: P; font-weight: 500; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Medium.ttf"); }
+  @font-face { font-family: P; font-weight: 700; src: url("file:///usr/share/fonts/truetype/google-fonts/Poppins-Bold.ttf"); }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="montage_timings.js"></script>
+<script>
+// Montage de sources/parole.mp4 : zooms, sous-titres mot par mot et effets calés sur la parole.
+// render.js envoie chaque image de la vidéo source via window.loadFrame avant d'appeler render(t).
+const params = new URLSearchParams(location.search);
+const W = +params.get('w') || 1080;
+const H = +params.get('h') || 1920;
+const SW = 1080, SH = 1920;                    // taille de la vidéo source
+const M = window.MONTAGE;
+const CLIP = M.clip, DURATION = M.clip + M.outro;
+const RED = '#A3192F', RED_L = '#E0263F', YELLOW = '#FFD60A', WHITE = '#FFFFFF';
+
+const cv = document.getElementById('c');
+cv.width = W; cv.height = H;
+const ctx = cv.getContext('2d');
+const U = W / 1080;
+
+// ---------- Outils ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eInOut = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const eBack = x => { const c = 2.4; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+const lerp = (a, b, x) => a + (b - a) * x;
+function font(size, weight = 700) { ctx.font = `${weight} ${size * U}px P`; }
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+// ---------- Image source ----------
+const frame = new Image();
+window.loadFrame = b64 => { frame.src = 'data:image/jpeg;base64,' + b64; return frame.decode(); };
+
+// ---------- Caméra : point de la source au centre de l'écran (x, y) et zoom (s) ----------
+const FACE = [540, 1080];
+const photoCam = p => {
+  const [x0, y0, x1, y1] = p.box;
+  return [(x0 + x1) / 2, (y0 + y1) / 2 + 60, Math.min(SW * 0.92 / (x1 - x0), SH * 0.5 / (y1 - y0))];
+};
+// [début, fin, caméra au début, caméra à la fin, durée du mouvement d'entrée (0 = coupe sèche)]
+const SHOTS = [
+  [0.00, 1.88, [...FACE, 1.00], [...FACE, 1.08], 0],
+  [1.88, 3.04, [500, 1120, 1.24], [500, 1120, 1.28], 0],
+  [3.04, 3.42, [500, 1140, 1.40], [500, 1140, 1.42], 0],
+  [3.42, 4.42, [540, 1040, 1.05], [540, 1040, 1.12], 0],
+  ...M.photos.map((p, i) => {
+    const c = photoCam(p), end = M.photos[i + 1] ? M.photos[i + 1].t - 0.1 : 6.70;
+    return [p.t - 0.1, end, c, [c[0], c[1], c[2] * 1.06], 0.22];
+  }),
+  [6.70, 8.50, [520, 1100, 1.18], [520, 1100, 1.24], 0.2],
+  [8.50, 9.56, [...FACE, 1.02], [...FACE, 1.06], 0],
+  [9.56, 11.74, [...FACE, 1.06], [520, 1060, 1.40], 0],
+  [11.74, 12.96, [530, 1080, 1.12], [530, 1080, 1.15], 0],
+  [12.96, 13.40, [500, 1130, 1.36], [500, 1130, 1.38], 0],
+  [13.40, DURATION, [520, 1100, 1.15], [520, 1100, 1.26], 0],
+];
+let prevCam = [...FACE, 1];
+function camera(t) {
+  let k = SHOTS.findIndex(s => t >= s[0] && t < s[1]);
+  if (k < 0) k = SHOTS.length - 1;
+  const [t0, t1, a, b, inDur] = SHOTS[k];
+  const tt = Math.min(t, CLIP);
+  const x = eInOut(prog(tt, t0, Math.min(t1, CLIP)));
+  let cam = [lerp(a[0], b[0], x), lerp(a[1], b[1], x), lerp(a[2], b[2], x)];
+  if (inDur > 0 && k > 0) {
+    // glisse depuis le plan précédent
+    const p = SHOTS[k - 1], from = p[3];
+    const m = eInOut(prog(t, t0, t0 + inDur));
+    cam = cam.map((v, i) => lerp(from[i], v, m));
+  }
+  // jamais de bord noir : zoom minimal et centre gardé dans l'image source
+  const z = Math.max(cam[2], 1.04), hw = SW / z / 2, hh = SH / z / 2 * (H / W) / (SH / SW);
+  return [clamp(cam[0], hw, SW - hw), clamp(cam[1], hh, SH - hh), z];
+}
+// tremblement sur les mots forts
+function shake(t) {
+  let dx = 0, dy = 0, r = 0;
+  for (const h of M.hits) {
+    const p = t - h;
+    if (p < 0 || p > 0.35) continue;
+    const a = Math.exp(-p * 12);
+    dx += Math.sin(p * 90) * 16 * a; dy += Math.cos(p * 75) * 12 * a; r += Math.sin(p * 60) * 0.012 * a;
+  }
+  return [dx * U, dy * U, r];
+}
+
+function drawFrame(t) {
+  const [cx, cy, s] = camera(t);
+  const [dx, dy, r] = shake(t);
+  const k = s * W / SW;
+  ctx.save();
+  ctx.translate(W / 2 + dx, H / 2 + dy); ctx.rotate(r); ctx.scale(k, k); ctx.translate(-cx, -cy);
+  if (t > CLIP) {
+    const b = eOut(prog(t, CLIP, CLIP + 0.5));
+    ctx.filter = `blur(${b * 14}px) brightness(${1 - b * 0.55})`;
+  }
+  // couvre aussi les bords quand la caméra tremble ou recadre
+  ctx.drawImage(frame, 0, 0, SW, SH);
+  ctx.filter = 'none';
+  ctx.restore();
+}
+
+// ---------- Visite des photos : projecteur + étiquette ----------
+function photoTour(t) {
+  const first = M.photos[0].t - 0.1, last = 6.70;
+  if (t < first || t > last + 0.2) return;
+  const fade = prog(t, first, first + 0.2) * (1 - prog(t, last, last + 0.2));
+  const k = M.photos.findLastIndex(p => t >= p.t - 0.1);
+  const p = M.photos[Math.max(0, k)];
+  const [cx, cy, s] = camera(t);
+  const sc = s * W / SW;
+  const tx = v => (v - cx) * sc + W / 2, ty = v => (v - cy) * sc + H / 2;
+  const [x0, y0, x1, y1] = p.box;
+  // assombrit tout sauf la photo
+  ctx.save();
+  ctx.fillStyle = `rgba(0,0,0,${0.55 * fade})`;
+  ctx.beginPath(); ctx.rect(0, 0, W, H);
+  ctx.rect(tx(x1), ty(y0), tx(x0) - tx(x1), ty(y1) - ty(y0));
+  ctx.fill('evenodd');
+  // cadre qui se dessine
+  const pd = eOut(prog(t, p.t - 0.05, p.t + 0.3));
+  ctx.strokeStyle = WHITE; ctx.lineWidth = 6 * U; ctx.globalAlpha = fade;
+  const X0 = tx(x0), Y0 = ty(y0), X1 = tx(x1), Y1 = ty(y1), per = 2 * ((X1 - X0) + (Y1 - Y0));
+  ctx.setLineDash([per * pd, per]);
+  ctx.strokeRect(X0, Y0, X1 - X0, Y1 - Y0);
+  ctx.setLineDash([]);
+  // étiquette avec le nom de la marque
+  const pl = eBack(prog(t, p.t, p.t + 0.25));
+  if (pl > 0) {
+    font(54, 700);
+    const w = ctx.measureText(p.name).width + 60 * U;
+    ctx.save(); ctx.translate(X0 + w / 2 + 10 * U, Y1 + 60 * U); ctx.scale(pl, pl);
+    ctx.fillStyle = RED_L; roundRect(-w / 2, -42 * U, w, 84 * U, 16 * U); ctx.fill();
+    ctx.fillStyle = WHITE; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(p.name, 0, 4 * U);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// ---------- Sous-titres : chaque mot apparaît quand il est dit ----------
+const G = M.groups.map((g, i) => ({
+  ...g, s: g.words[0][1] - 0.06,
+  e: M.groups[i + 1] ? M.groups[i + 1].words[0][1] - 0.06 : CLIP + 0.5,
+}));
+const wordEnd = (g, j) => g.words[j + 1] ? g.words[j + 1][1] : g.e;
+let lastLayout = null;        // position des mots du sous-titre affiché (pour les effets)
+function captions(t) {
+  lastLayout = null;
+  const g = G.find(g => t >= g.s && t < g.e);
+  if (!g) return;
+  const size = g.words.length === 1 ? 130 : 92;
+  font(size, 700);
+  const sp = size * 0.42 * U, maxW = W * 0.88;
+  const lines = [[]]; let lw = 0;
+  g.words.forEach(([w, ws], j) => {
+    // un mot mis en couleur grossit : on lui réserve un peu plus de place
+    const ww = ctx.measureText(w).width * (g.hl.includes(w.replace(/[,…]/g, '')) ? 1.12 : 1);
+    if (lw + ww > maxW && lines.at(-1).length) { lines.push([]); lw = 0; }
+    lines.at(-1).push({ w, ws, j, ww }); lw += ww + sp;
+  });
+  const lh = size * 1.12 * U, y0 = H * 0.765 - (lines.length - 1) * lh / 2;
+  const out = 1 - prog(t, g.e - 0.08, g.e);
+  lastLayout = [];
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  lines.forEach((l, i) => {
+    let x = W / 2 - l.reduce((a, w) => a + w.ww + sp, -sp) / 2;
+    l.forEach(w => {
+      const p = prog(t, w.ws - 0.03, w.ws + 0.16);
+      const cx = x + w.ww / 2, cy = y0 + i * lh;
+      x += w.ww + sp;
+      if (p <= 0) return;
+      const hl = g.hl.includes(w.w.replace(/[,…]/g, ''));
+      const cur = t < wordEnd(g, w.j);
+      const color = hl ? (w.w === 'ERREURS' ? RED_L : YELLOW) : WHITE;
+      const s = eBack(p) * (cur && hl ? 1.08 : 1);
+      lastLayout.push({ w: w.w, ws: w.ws, x: cx, y: cy, ww: w.ww, size });
+      ctx.save(); ctx.translate(cx, cy + (1 - eOut(p)) * 30 * U); ctx.scale(s, s);
+      ctx.globalAlpha = clamp(p * 3) * out;
+      font(size, 700);
+      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 18 * U; ctx.shadowOffsetY = 6 * U;
+      ctx.lineWidth = 14 * U; ctx.strokeStyle = '#000'; ctx.strokeText(w.w, 0, 0);
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = color; ctx.fillText(w.w, 0, 0);
+      ctx.restore();
+    });
+  });
+  ctx.restore();
+}
+
+// ---------- Effets sur les mots clés ----------
+function star(x, y, r, a) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) { const rr = i % 2 ? r * 0.28 : r; const an = i * Math.PI / 4; ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); }
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function effects(t) {
+  if (!lastLayout) return;
+  for (const w of lastLayout) {
+    const p = t - w.ws;
+    if (p < 0) continue;
+    const word = w.w.replace(/[,…]/g, '');
+    // étincelles autour de « parfait »
+    if (word.startsWith('PARFAIT') && p < 0.9) {
+      const a = Math.sin(Math.PI * clamp(p / 0.9));
+      ctx.fillStyle = YELLOW; ctx.globalAlpha = a;
+      [[-0.6, -0.9, 34], [0.62, -0.8, 26], [0.55, 0.85, 20], [-0.5, 0.8, 16]].forEach(([fx, fy, r], i) =>
+        star(w.x + fx * w.ww, w.y + fy * w.size * U, r * U * (0.6 + 0.4 * a), p * 3 + i));
+      ctx.globalAlpha = 1;
+    }
+    // ampoule sur « créer »
+    if (word === 'CRÉER') {
+      const pl = eBack(prog(t, w.ws, w.ws + 0.3)), ly = w.y - 150 * U;
+      ctx.save(); ctx.globalAlpha = clamp(pl);
+      ctx.shadowColor = YELLOW; ctx.shadowBlur = 50 * U;
+      ctx.fillStyle = YELLOW; ctx.beginPath(); ctx.arc(w.x, ly, 40 * U * pl, 0, 6.283); ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = '#ddd'; ctx.fillRect(w.x - 18 * U, ly + 36 * U * pl, 36 * U, 22 * U * pl);
+      ctx.strokeStyle = YELLOW; ctx.lineWidth = 6 * U; ctx.lineCap = 'round';
+      for (let i = 0; i < 7; i++) {
+        const an = -Math.PI + i * Math.PI / 6, r0 = 58 * U, r1 = r0 + 30 * U * pl;
+        ctx.beginPath(); ctx.moveTo(w.x + Math.cos(an) * r0, ly + Math.sin(an) * r0); ctx.lineTo(w.x + Math.cos(an) * r1, ly + Math.sin(an) * r1); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // horloge qui s'emballe sur « du jour au lendemain »
+    if (word === 'LENDEMAIN') {
+      const top = Math.min(...lastLayout.map(l => l.y));
+      const pc = eBack(prog(t, w.ws - 0.1, w.ws + 0.25)), cx = W * 0.8, cy = top - 230 * U, r = 85 * U * pc;
+      ctx.save(); ctx.globalAlpha = clamp(pc);
+      ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.strokeStyle = RED_L; ctx.lineWidth = 10 * U;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.283); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = '#111'; ctx.lineCap = 'round';
+      const sp = (t - w.ws) * 14;
+      ctx.lineWidth = 8 * U; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(sp / 12) * r * 0.5, cy - Math.cos(sp / 12) * r * 0.5); ctx.stroke();
+      ctx.lineWidth = 6 * U; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.sin(sp) * r * 0.75, cy - Math.cos(sp) * r * 0.75); ctx.stroke();
+      ctx.restore();
+    }
+    // tampon rouge sur « erreurs »
+    if (word === 'ERREURS') {
+      const ps = prog(t, w.ws, w.ws + 0.18), s = lerp(2.2, 1, eOut(ps));
+      ctx.save(); ctx.globalAlpha = clamp(ps * 2) * 0.9;
+      ctx.translate(w.x + w.ww / 2 + 70 * U, w.y - 20 * U); ctx.rotate(0.2); ctx.scale(s, s);
+      ctx.strokeStyle = RED_L; ctx.lineWidth = 16 * U; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-36 * U, -36 * U); ctx.lineTo(36 * U, 36 * U); ctx.moveTo(36 * U, -36 * U); ctx.lineTo(-36 * U, 36 * U); ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+// ---------- Finitions : grain, vignette, barre de progression ----------
+const grain = document.createElement('canvas'); grain.width = 270; grain.height = 480;
+const gctx = grain.getContext('2d'), gimg = gctx.createImageData(270, 480);
+let seed = 1;
+const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function finish(t) {
+  seed = 1 + Math.floor(t * 30) * 7919;
+  for (let i = 0; i < gimg.data.length; i += 4) { const v = rand() * 255; gimg.data[i] = gimg.data[i + 1] = gimg.data[i + 2] = v; gimg.data[i + 3] = 255; }
+  gctx.putImageData(gimg, 0, 0);
+  ctx.save(); ctx.globalAlpha = 0.045; ctx.globalCompositeOperation = 'overlay'; ctx.drawImage(grain, 0, 0, W, H); ctx.restore();
+  const v = ctx.createRadialGradient(W / 2, H * 0.48, Math.min(W, H) * .45, W / 2, H / 2, Math.max(W, H) * .72);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.5)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fillRect(0, 0, W, 8 * U);
+  ctx.fillStyle = RED_L; ctx.fillRect(0, 0, W * clamp(t / DURATION), 8 * U);
+}
+
+// ---------- Fin : logo MING Store ----------
+function measureText(str, size, weight) { font(size, weight); return ctx.measureText(str).width; }
+function outro(t) {
+  const t0 = CLIP + 0.25;
+  if (t < t0) return;
+  const s = 150, cx = W / 2, cy = H * 0.42;
+  const wMing = measureText('MING', s, 500), wStore = measureText('Store', s, 500);
+  const total = wMing * 0.55 + wStore, left = cx - total / 2;
+  ctx.save(); ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+  let x = left;
+  'MING'.split('').forEach((ch, i) => {
+    const p = eOut(prog(t, t0 + i * 0.05, t0 + i * 0.05 + 0.3));
+    font(s, 500); ctx.globalAlpha = p; ctx.fillStyle = WHITE;
+    ctx.fillText(ch, x, cy - s * U * 0.42 + (1 - p) * 60 * U);
+    x += ctx.measureText(ch).width;
+  });
+  const p2 = eOut(prog(t, t0 + 0.22, t0 + 0.6));
+  ctx.globalAlpha = p2;
+  const xs = left + wMing * 0.55 + (1 - p2) * 120 * U, yS = cy + s * U * 0.55;
+  font(s, 500); ctx.fillStyle = RED_L; ctx.fillText('Sto', xs, yS);
+  const wSto = ctx.measureText('Sto').width;
+  ctx.fillStyle = WHITE; ctx.fillText('re', xs + wSto, yS);
+  const p3 = eOut(prog(t, t0 + 0.6, t0 + 1.0));
+  ctx.globalAlpha = p3; ctx.textAlign = 'center';
+  font(44, 500); ctx.fillStyle = '#eeeeee';
+  ctx.fillText('IMPORT  •  EXPORT', cx, yS + 150 * U + (1 - p3) * 20 * U);
+  ctx.restore();
+  const fo = prog(t, DURATION - 0.4, DURATION);
+  if (fo > 0) { ctx.fillStyle = `rgba(0,0,0,${fo})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// ---------- Rendu d'une image ----------
+function render(t) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  drawFrame(t);
+  photoTour(t);
+  captions(t);
+  effects(t);
+  outro(t);
+  finish(t);
+}
+window.render = render;
+window.DURATION = DURATION;
+window.ready = document.fonts.load('700 10px P').then(() => Promise.all([400, 500].map(w => document.fonts.load(`${w} 10px P`))));
+</script>
+</body>
+</html>
