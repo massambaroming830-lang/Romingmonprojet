@@ -41,6 +41,7 @@ Enregistre les fichiers sous ces noms dans `jalousie/clips/`.
 ```bash
 cd jalousie
 python3 musique.py musique.wav          # bande-son originale (15 s)
+python3 elevenlabs.py                    # voix off + bruitages ElevenLabs (clé ELEVENLABS_API_KEY)
 python3 montage.py                       # -> Jeremie_A_bas_la_jalousie_1080x1920.mp4
 python3 montage.py --horizontal          # -> version 1920x1080
 ```
@@ -50,6 +51,20 @@ Le montage ajoute :
   **KINSHASA / RDC / DÉPART**, **ANGOLA / ESCALE**, **BRUXELLES / ARRIVÉE**
 - les transitions entre les clips
 - la fin avec l'affiche, un léger zoom et **20.12.2026 · LA MADELEINE · BRUXELLES / RÉSERVEZ VOS PLACES**
-- la musique
+- la musique, et si elles existent la **voix off** (`voix_off.wav`) et les **bruitages** (`bruitages.wav`)
+  générés par `elevenlabs.py` ; la musique baisse automatiquement quand la voix parle
+
+### Voix off (ElevenLabs, voix « George », modèle multilingue)
+| Temps | Scène | Texte |
+|---|---|---|
+| 0,35 s | Kinshasa | De Kinshasa… |
+| 3,0 s | Angola | en passant par l'Angola… |
+| 5,6 s | Bruxelles | il arrive enfin à Bruxelles ! |
+| 8,15 s | La Madeleine | Jérémie et son groupe présentent… |
+| 10,25 s | Affiche | À bas la jalousie ! Le 20 décembre, à La Madeleine. Réservez vos places ! |
+
+Bruitages : vent et battements d'ailes, cri d'aigle, whooshes aux transitions, vagues (Angola),
+ambiance de ville et cloches (Bruxelles), foule devant le théâtre, impact sur l'affiche, rires et applaudissements.
+Pour changer de voix : `ELEVENLABS_VOICE_ID=<id> python3 elevenlabs.py` (supprimer `audio_el/` pour tout régénérer).
 
 Si un clip manque, le script met à sa place un fond provisoire. Tu peux donc voir le rythme de la vidéo tout de suite.

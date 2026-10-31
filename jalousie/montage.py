@@ -114,7 +114,32 @@ def main():
         music = os.path.join(HERE, "musique.wav")
         audio = ["-i", music] if os.path.exists(music) else ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"]
         na = len(files)
-        fc.append(f"[{na}:a]atrim=0:{total:.3f},afade=t=out:st={total-0.8:.3f}:d=0.8[a]")
+        # voix off et bruitages ElevenLabs (voir elevenlabs.py), ajoutés s'ils existent
+        voix, sfx = os.path.join(HERE, "voix_off.wav"), os.path.join(HERE, "bruitages.wav")
+        mus = f"[{na}:a]aformat=sample_rates=44100:channel_layouts=stereo,atrim=0:{total:.3f}"
+        layers = []
+        if os.path.exists(sfx):
+            audio += ["-i", sfx]
+            na_s = na + 1
+            mus += ",volume=0.7"
+            layers.append(f"[{na_s}:a]aformat=sample_rates=44100:channel_layouts=stereo,volume=0.9[sfx]")
+        if os.path.exists(voix):
+            audio += ["-i", voix]
+            na_v = na + 1 + (1 if os.path.exists(sfx) else 0)
+            layers.append(f"[{na_v}:a]aformat=sample_rates=44100:channel_layouts=stereo,asplit=2[vo][vkey]")
+        if layers:
+            fc += layers
+            fc.append(f"{mus}[mus0]")
+            if os.path.exists(voix):  # la musique (et les bruitages) baissent quand la voix parle
+                bed = "[mus0][sfx]amix=inputs=2:normalize=0[bed0]" if os.path.exists(sfx) else "[mus0]anull[bed0]"
+                fc.append(bed)
+                fc.append("[bed0][vkey]sidechaincompress=threshold=0.03:ratio=6:attack=20:release=350[bed]")
+                fc.append("[bed][vo]amix=inputs=2:normalize=0,alimiter=limit=0.95[mixa]")
+            else:
+                fc.append("[mus0][sfx]amix=inputs=2:normalize=0,alimiter=limit=0.95[mixa]")
+            fc.append(f"[mixa]atrim=0:{total:.3f},afade=t=out:st={total-0.8:.3f}:d=0.8[a]")
+        else:
+            fc.append(f"{mus},afade=t=out:st={total-0.8:.3f}:d=0.8[a]")
         run(["ffmpeg", "-v", "error", "-y", *inputs, *audio, "-filter_complex", ";".join(fc),
              "-map", prev, "-map", "[a]", "-t", f"{total:.3f}", "-c:v", "libx264", "-crf", "19",
              "-preset", "medium", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
