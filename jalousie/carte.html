@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Carte animée Kinshasa → Angola → Bruxelles</title>
+<style>html,body{margin:0;background:#000}canvas{display:block;max-width:100vw;max-height:100vh;margin:auto}</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Carte animée originale : un aigle trace la route Kinshasa -> Luanda -> Bruxelles -> La Madeleine.
+// Ouvre ce fichier dans un navigateur pour l'aperçu ; carte_render.js l'exporte en clips.
+const q = new URLSearchParams(location.search);
+const W = +(q.get('w') || 1080), H = +(q.get('h') || 1920);
+const c = document.getElementById('c'); c.width = W; c.height = H;
+const g = c.getContext('2d');
+window.DURATION = 8.4;            // scène 2 : 0-3 s, scène 3 : 3-6 s, scène 4 : 6-8.4 s
+const U = Math.min(W, H) / 1080;  // unité d'échelle
+
+// ---------- géographie simplifiée (lon, lat) ----------
+const AFRICA = [[-17.5,14.7],[-16.8,21],[-13,27.5],[-9.8,30.5],[-5.9,35.8],[-1,35.2],[3,36.8],[10,37.2],[11,33.5],[15,32.3],[20,31],[20,32.7],[25,31.6],[32,31.2],[34.5,28],[37,22],[39,16],[43,12.5],[51.2,11.8],[51,10.5],[48,5],[42,-1],[40,-5],[39.5,-10],[40.5,-15],[35,-21],[35.5,-24],[32.5,-28.5],[28,-33],[20,-34.8],[18.4,-34],[17.5,-30],[15.2,-27],[14.5,-22.5],[11.8,-17],[12.3,-13],[13.5,-11],[13.2,-8.8],[12.3,-6],[11.8,-4.5],[9.3,-1],[9.5,2.5],[8.5,4.5],[5,6],[1,6],[-3,5],[-7.5,4.4],[-11.5,7],[-13.3,9.5],[-15,11],[-16.7,12.5]];
+const EUROPE = [[-9.5,37],[-6.3,36.8],[-5.6,36],[-2,36.7],[0.2,38.8],[0,40],[3.2,41.9],[3,43.3],[6,43.1],[7.5,43.8],[9,44.4],[10.5,43],[12.5,41.5],[16,38],[15.7,40],[18.5,40.2],[16,41.5],[13.5,43.6],[12.3,45.3],[13.7,45.6],[15,45],[19.5,42],[20,39.5],[22.5,36.5],[24,38],[23,40.5],[26,40.8],[29,41],[30,45],[33,46],[42,47],[42,62],[30,62],[28,56],[21,55.2],[19,54.4],[14,54],[10.8,54],[9.5,57],[8.2,55.5],[8.6,53.8],[7,53.4],[5,53.3],[4.5,52.5],[3.4,51.4],[1.6,50.9],[1.5,50.2],[0.2,49.6],[-1.3,49.6],[-1.9,48.7],[-4.7,48.4],[-4.3,47.8],[-2,47.2],[-1.2,46],[-1.5,43.5],[-4,43.4],[-8,43.7],[-9.2,43],[-8.8,41.5],[-9.5,39]];
+const UK = [[-5.7,50],[1.4,51.2],[1.7,52.7],[0.2,53.5],[-1.5,55],[-2,56],[-1.8,57.6],[-3.3,58.6],[-5,58.6],[-6.2,57],[-5.5,55.4],[-4.6,54.8],[-3.3,54.4],[-3,53.4],[-4.6,53.2],[-4.2,52.3],[-5.2,51.7],[-3.4,51.4]];
+const IRL = [[-6,52],[-6,54],[-7.5,55.2],[-10,54.2],[-10,51.6],[-8,51.6]];
+const LANDS = [AFRICA, EUROPE, UK, IRL];
+
+const KIN = [15.3, -4.3], LUA = [13.23, -8.84], BRU = [4.35, 50.85];
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const ease = t => t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+const eo = t => 1 - Math.pow(1 - t, 3);
+
+// projection : y = latitude « Mercator » pour garder des formes crédibles
+const merc = lat => Math.log(Math.tan(Math.PI/4 + lat*Math.PI/360)) * 180 / Math.PI;
+
+// ---------- trajet ----------
+function bez(p0, p1, p2, p3, t) {
+  const u = 1 - t;
+  return [0, 1].map(i => u*u*u*p0[i] + 3*u*u*t*p1[i] + 3*u*t*t*p2[i] + t*t*t*p3[i]);
+}
+const LEG1 = t => bez(KIN, [14.8, -6], [14, -7.8], LUA, t);
+const LEG2 = t => bez(LUA, [3, -4], [-15, 30], BRU, t);
+// position sur le trajet complet, s de 0 à 1 (0-0.12 : Kinshasa->Luanda)
+const route = s => s < .12 ? LEG1(s / .12) : LEG2((s - .12) / .88);
+
+// avancée de l'aigle selon le temps
+function progress(t) {
+  if (t < 3) return lerp(0, .12, ease(clamp((t - .2) / 2.2)));
+  if (t < 6) return lerp(.12, 1, ease(clamp((t - 3) / 2.8)));
+  return 1;
+}
+
+// caméra : centre (lon, lat) et zoom (pixels par degré)
+function camera(t) {
+  const s = progress(t), p = route(s);
+  let z;
+  if (t < 3) z = lerp(150, 95, ease(clamp(t / 3)));
+  else if (t < 6) { const k = clamp((t - 3) / 3); z = 95 * Math.pow(18 / 95, Math.sin(Math.PI * k) * .9 + k * .1); z = Math.min(z, lerp(95, 120, k)); }
+  else z = 120 * Math.pow(30, ease(clamp((t - 6) / 2.4)));
+  return { lon: p[0], lat: p[1], z };
+}
+
+function proj(cam, lon, lat) {
+  return [W / 2 + (lon - cam.lon) * cam.z, H * .62 - (merc(lat) - merc(cam.lat)) * cam.z];
+}
+
+// ---------- dessin ----------
+function poly(cam, pts) {
+  g.beginPath();
+  pts.forEach((p, i) => { const [x, y] = proj(cam, p[0], p[1]); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+  g.closePath();
+}
+
+function drawMap(cam, t) {
+  // océan
+  const oc = g.createLinearGradient(0, 0, 0, H);
+  oc.addColorStop(0, '#0b2f45'); oc.addColorStop(.55, '#0f5368'); oc.addColorStop(1, '#0a2a3a');
+  g.fillStyle = oc; g.fillRect(0, 0, W, H);
+  // reflets du soleil sur l'eau
+  for (let i = 0; i < 70; i++) {
+    const x = ((i * 397.3 + t * 40 * (1 + i % 3)) % (W + 200)) - 100;
+    const y = (i * 271.7) % H;
+    g.strokeStyle = `rgba(255,214,150,${.04 + .05 * Math.sin(t * 3 + i)})`;
+    g.lineWidth = 2 * U; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 40 * U, y); g.stroke();
+  }
+  // graticule
+  g.strokeStyle = 'rgba(255,200,120,0.10)'; g.lineWidth = 1.5 * U;
+  for (let lon = -40; lon <= 60; lon += 10) { g.beginPath(); const a = proj(cam, lon, -40), b = proj(cam, lon, 70); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+  for (let lat = -40; lat <= 70; lat += 10) { g.beginPath(); const a = proj(cam, -40, lat), b = proj(cam, 60, lat); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+  // terres : ombre, remplissage, côte lumineuse
+  LANDS.forEach(L => {
+    g.save(); g.translate(8 * U, 14 * U); poly(cam, L); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fill(); g.restore();
+    poly(cam, L);
+    const lg = g.createLinearGradient(0, 0, W, H);
+    lg.addColorStop(0, '#e9a35a'); lg.addColorStop(.5, '#cf6f37'); lg.addColorStop(1, '#a8452a');
+    g.fillStyle = lg; g.fill();
+    g.strokeStyle = 'rgba(255,236,200,0.85)'; g.lineWidth = 3 * U; g.stroke();
+  });
+}
+
+function drawRoute(cam, s, t) {
+  const N = 220;
+  // trajet à venir, en pointillés discrets
+  g.setLineDash([6 * U, 14 * U]); g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 4 * U;
+  g.beginPath();
+  for (let i = 0; i <= N; i++) { const p = proj(cam, ...route(i / N)); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
+  g.stroke(); g.setLineDash([]);
+  // trajet parcouru, doré et lumineux
+  g.shadowColor = '#ffcf6b'; g.shadowBlur = 24 * U;
+  g.strokeStyle = '#ffd27a'; g.lineWidth = 8 * U; g.lineCap = 'round';
+  g.beginPath();
+  const n = Math.max(1, Math.round(N * s));
+  for (let i = 0; i <= n; i++) { const p = proj(cam, ...route(s * i / n)); i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); }
+  g.stroke(); g.shadowBlur = 0;
+}
+
+function pin(cam, ll, label, appear, t, big) {
+  const k = eo(clamp((t - appear) / .4));
+  if (k <= 0) return;
+  const [x, y] = proj(cam, ll[0], ll[1]);
+  const pulse = (t * 1.2) % 1;
+  g.strokeStyle = `rgba(255,220,140,${(1 - pulse) * .8})`; g.lineWidth = 4 * U;
+  g.beginPath(); g.arc(x, y, (14 + 50 * pulse) * U * k, 0, 7); g.stroke();
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, 13 * U * k, 0, 7); g.fill();
+  g.fillStyle = '#e4202a'; g.beginPath(); g.arc(x, y, 8 * U * k, 0, 7); g.fill();
+  if (!label) return;
+  g.globalAlpha = k;
+  g.font = `800 ${(big ? 46 : 38) * U}px "Inter Display", Inter, sans-serif`;
+  const tw = g.measureText(label).width, pad = 18 * U, bh = (big ? 70 : 60) * U;
+  const bx = x - (tw + pad * 2) / 2, by = y + 34 * U;
+  g.fillStyle = 'rgba(10,20,30,0.75)';
+  g.beginPath(); g.roundRect(bx, by, tw + pad * 2, bh, bh / 2); g.fill();
+  g.fillStyle = '#fff'; g.textBaseline = 'middle'; g.fillText(label, bx + pad, by + bh / 2 + 2 * U);
+  g.globalAlpha = 1;
+}
+
+// aigle original vu de dessus, ailes qui battent
+function eagle(x, y, ang, size, t) {
+  const flap = Math.sin(t * 9);
+  g.save(); g.translate(x, y); g.rotate(ang);
+  // ombre portée sur la carte
+  g.save(); g.translate(18 * U, 28 * U); g.globalAlpha = .16; g.fillStyle = '#000'; drawBird(size, flap); g.restore();
+  drawBird(size, flap, true);
+  g.restore();
+}
+function drawBird(s, flap, color) {
+  // le bec pointe vers +x ; envergure le long de y
+  const span = s * (0.92 + 0.12 * flap);
+  for (const d of [-1, 1]) {
+    g.beginPath();
+    g.moveTo(s * .10, d * s * .05);                          // épaule (bord d'attaque)
+    g.quadraticCurveTo(s * .14, d * span * .55, s * .02, d * span * .92);
+    // plumes primaires « en doigts » au bout de l'aile
+    const tips = [[.02, .98], [-.05, 1.0], [-.11, .97], [-.17, .9], [-.21, .8]];
+    tips.forEach(([fx, fy], i) => {
+      g.lineTo(s * fx, d * span * fy);
+      g.lineTo(s * (fx - .035), d * span * (fy - .07));
+    });
+    g.quadraticCurveTo(-s * .2, d * span * .45, -s * .14, d * s * .06); // bord de fuite
+    g.closePath();
+    if (color) { const wg = g.createLinearGradient(0, 0, 0, d * span); wg.addColorStop(0, '#6b4220'); wg.addColorStop(.75, '#3a210d'); wg.addColorStop(1, '#1c1008'); g.fillStyle = wg; }
+    g.fill();
+  }
+  // queue blanche en éventail
+  g.beginPath(); g.moveTo(-s * .16, -s * .05); g.lineTo(-s * .42, -s * .11);
+  g.quadraticCurveTo(-s * .47, 0, -s * .42, s * .11); g.lineTo(-s * .16, s * .05); g.closePath();
+  if (color) g.fillStyle = '#f4f1ea'; g.fill();
+  // corps
+  g.beginPath(); g.ellipse(-s * .02, 0, s * .2, s * .075, 0, 0, 7);
+  if (color) g.fillStyle = '#4a2a12'; g.fill();
+  // tête blanche + bec jaune
+  g.beginPath(); g.ellipse(s * .2, 0, s * .08, s * .06, 0, 0, 7);
+  if (color) g.fillStyle = '#fbf8f1'; g.fill();
+  g.beginPath(); g.moveTo(s * .26, -s * .025); g.lineTo(s * .34, 0); g.lineTo(s * .26, s * .025); g.closePath();
+  if (color) g.fillStyle = '#f2b51e'; g.fill();
+}
+
+function clouds(t) {
+  for (let i = 0; i < 7; i++) {
+    const x = ((i * 523 - t * (160 + i * 40) * U) % (W + 600) + W + 600) % (W + 600) - 300;
+    const y = (i * 311 + 120) % H;
+    const r = (180 + (i % 3) * 90) * U;
+    const cg = g.createRadialGradient(x, y, 0, x, y, r);
+    cg.addColorStop(0, 'rgba(255,240,225,0.22)'); cg.addColorStop(1, 'rgba(255,240,225,0)');
+    g.fillStyle = cg; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+}
+
+function grade(t) {
+  // lumière dorée de coucher de soleil + vignette
+  const sg = g.createRadialGradient(W * .8, H * .08, 0, W * .8, H * .08, H * .9);
+  sg.addColorStop(0, 'rgba(255,190,90,0.35)'); sg.addColorStop(1, 'rgba(255,120,60,0)');
+  g.fillStyle = sg; g.fillRect(0, 0, W, H);
+  const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.55)');
+  g.fillStyle = vg; g.fillRect(0, 0, W, H);
+  // éclair blanc à l'arrivée sur La Madeleine
+  const f = clamp((t - 7.7) / .7);
+  if (f > 0) { g.fillStyle = `rgba(255,248,235,${f * .85})`; g.fillRect(0, 0, W, H); }
+}
+
+window.render = function (t) {
+  const cam = camera(t), s = progress(t);
+  drawMap(cam, t);
+  drawRoute(cam, s, t);
+  // aigle : position + direction de vol
+  const a = route(Math.max(0, s - .004)), b = route(Math.min(1, s + .004));
+  const pa = proj(cam, ...a), pb = proj(cam, ...b), p = proj(cam, ...route(s));
+  let ang = Math.atan2(pb[1] - pa[1], pb[0] - pa[0]);
+  if (s >= 1) ang = -Math.PI / 2;
+  const lift = t > 6 ? 1 + 0.6 * ease(clamp((t - 6) / 2.4)) : 1;
+  eagle(p[0] + (s >= 1 ? 0 : 0), p[1] - (t > 6 ? 160 * U * ease(clamp((t - 6) / 2.4)) : 0), ang, 150 * U * lift, t);
+  pin(cam, KIN, 'KINSHASA', 0, t);
+  pin(cam, LUA, 'LUANDA', 1.9, t);
+  pin(cam, BRU, t > 6.3 ? 'LA MADELEINE' : 'BRUXELLES', 5.4, t, t > 6.3);
+  clouds(t);
+  grade(t);
+};
+window.ready = document.fonts.ready.then(() => window.render(0));
+
+// aperçu en boucle dans le navigateur
+if (!q.get('render')) {
+  const t0 = performance.now();
+  (function loop() { window.render(((performance.now() - t0) / 1000) % window.DURATION); requestAnimationFrame(loop); })();
+}
+</script>
+</body>
+</html>

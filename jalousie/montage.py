@@ -50,8 +50,12 @@ def typewriter(lines, start=0.25, per_char=0.06):
 
 def scene_file(tmp, i, clip, dur, lines, colors):
     path = os.path.join(HERE, "clips", clip)
+    anim = os.path.join(HERE, "clips", clip.replace("clip", "anim").replace(".mp4", f"_{W}x{H}.mp4"))
     out = os.path.join(tmp, f"s{i}.mp4")
-    if os.path.exists(path):
+    if not os.path.exists(path) and os.path.exists(anim):  # carte animée (carte.html)
+        src = ["-i", anim]
+        base = f"[0:v]scale={W}:{H},fps={FPS},trim=0:{dur},setpts=PTS-STARTPTS"
+    elif os.path.exists(path):
         src = ["-i", path]
         # recadrage léger pour retirer le filigrane en bas à droite
         base = (f"[0:v]crop=iw*0.9:ih*0.9:iw*0.05:ih*0.02,scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
