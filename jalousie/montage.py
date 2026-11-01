@@ -53,7 +53,8 @@ def scene_file(tmp, i, clip, dur, lines, colors):
     out = os.path.join(tmp, f"s{i}.mp4")
     if os.path.exists(path):
         src = ["-i", path]
-        base = (f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+        # recadrage léger pour retirer le filigrane en bas à droite
+        base = (f"[0:v]crop=iw*0.9:ih*0.9:iw*0.05:ih*0.02,scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
                 f"fps={FPS},trim=0:{dur},setpts=PTS-STARTPTS")
     else:  # fond provisoire en dégradé + mention du clip à générer
         src = ["-f", "lavfi", "-i",
