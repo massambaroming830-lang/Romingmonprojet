@@ -6,6 +6,7 @@ Usage :
   python3 musique.py musique_tiktok.wav 26 17.5 4.5 8.5 12.5 17.5
   python3 voix_kokoro.py kokoro-v1.0.onnx voices-v1.0.bin   -> voix_tiktok.wav
   python3 motion_tiktok.py                                   -> Jeremie_A_bas_la_jalousie_motion_TikTok.mp4
+  python3 motion_tiktok.py --remix   (remplace seulement le son, ex. après avoir changé fond_musique.m4a)
 """
 import math, os, subprocess
 import numpy as np
@@ -306,16 +307,35 @@ def render(fi):
     return np.clip(a, 0, 255).astype(np.uint8)
 
 
-def main():
-    music = os.path.join(HERE, "musique_tiktok.wav")
+def audio_filter():
+    """Musique de fond (fond_musique.m4a si présent, sinon musique_tiktok.wav) baissée sous la voix."""
+    fond = os.path.join(HERE, "fond_musique.m4a")
+    if os.path.exists(fond):  # titre réel, très fort : on le baisse et on creuse la zone de la voix
+        music, mvol = fond, ("volume=0.32,equalizer=f=2500:t=q:w=1.2:g=-5,afade=t=in:st=0:d=0.4")
+    else:
+        music, mvol = os.path.join(HERE, "musique_tiktok.wav"), "volume=0.75"
     voix = os.path.join(HERE, "voix_tiktok.wav")
-    af = (f"[1:a]aformat=sample_rates=44100:channel_layouts=stereo,atrim=0:{DUR},volume=0.75[m];"
+    af = (f"[1:a]aformat=sample_rates=44100:channel_layouts=stereo,atrim=0:{DUR},{mvol}[m];"
           f"[2:a]aformat=sample_rates=44100:channel_layouts=stereo,highpass=f=80,"
           f"acompressor=threshold=0.1:ratio=3:attack=5:release=120,volume=1.6,asplit=2[v][k];"
-          f"[m][k]sidechaincompress=threshold=0.03:ratio=8:attack=15:release=400[mb];"
-          f"[mb][v]amix=inputs=2:normalize=0,alimiter=limit=0.95,afade=t=out:st={DUR-0.8}:d=0.8[a]")
+          f"[m][k]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=450[mb];"
+          f"[mb][v]amix=inputs=2:normalize=0,alimiter=limit=0.95,afade=t=out:st={DUR-1.5}:d=1.5[a]")
+    return ["-i", music, "-i", voix, "-filter_complex", af]
+
+
+def remix():
+    """Remplace seulement le son de la vidéo déjà rendue (pas de nouveau rendu des images)."""
+    tmp = OUT + ".tmp.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", OUT, *audio_filter(), "-map", "0:v", "-map", "[a]",
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart",
+                    "-t", str(DUR), tmp], check=True)
+    os.replace(tmp, OUT)
+    print(f"OK (son remplacé) -> {OUT}")
+
+
+def main():
     cmd = ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
-           "-r", str(FPS), "-i", "-", "-i", music, "-i", voix, "-filter_complex", af,
+           "-r", str(FPS), "-i", "-", *audio_filter(),
            "-map", "0:v", "-map", "[a]",
            "-c:v", "libx264", "-crf", "20", "-maxrate", "12M", "-bufsize", "24M", "-preset", "slow", "-pix_fmt", "yuv420p",
            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-t", str(DUR), OUT]
@@ -334,5 +354,7 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) > 2 and sys.argv[1] == "--frame":  # aperçu d'une image : --frame 3.5 out.png
         Image.fromarray(render(int(float(sys.argv[2]) * FPS))).save(sys.argv[3])
+    elif "--remix" in sys.argv:  # nouveau son sur la vidéo existante
+        remix()
     else:
         main()

@@ -90,5 +90,8 @@ python3 musique.py musique_tiktok.wav 26 17.5 4.5 8.5 12.5 17.5
 python3 voix_kokoro.py kokoro-v1.0.onnx voices-v1.0.bin      # modèle : github.com/thewh1teagle/kokoro-onnx (model-files-v1.0)
 python3 motion_tiktok.py
 ```
+Musique de fond : `fond_musique.m4a` (26 premières secondes du titre fourni). Elle remplace `musique_tiktok.wav`
+et baisse automatiquement sous la voix. Pour changer de musique, remplace ce fichier puis lance `python3 motion_tiktok.py --remix`.
+
 La phonétique de la voix est écrite à la main dans `voix_kokoro.py` (pas besoin d'espeak-ng).
 Pour changer un texte, modifie le texte **et** sa phonétique.
