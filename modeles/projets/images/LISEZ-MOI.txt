@@ -1,0 +1,4 @@
+Mets ici tes photos (jpg, png, webp) et ton logo.
+Les noms doivent correspondre à ceux écrits dans les fichiers JSON,
+par exemple "fichier": "images/produit1.jpg".
+Sans photo, la vidéo affiche un emplacement « VOTRE PHOTO ICI ».

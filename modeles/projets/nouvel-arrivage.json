@@ -1,0 +1,16 @@
+{
+  "marque": "MING Store",
+  "theme": { "fond": "#05080d", "principal": "#C8102E", "accent": "#FF4D5E", "decor": "grille" },
+  "transition": "glisse",
+  "audio": { "musique": "auto", "ambiance": "afro" },
+  "scenes": [
+    { "type": "titre", "duree": 2.6, "surtitre": "Nouvel arrivage", "lignes": ["Direct de", "Chine"], "transition": "flash" },
+    { "type": "image", "duree": 3.2, "fichier": "images/produit1.jpg", "legende": "Électroménager", "detail": "Mixeurs, fers à repasser, ventilateurs", "mouvement": "zoom-avant" },
+    { "type": "image", "duree": 3.2, "fichier": "images/produit2.jpg", "legende": "Téléphones & accessoires", "detail": "Coques, chargeurs, écouteurs", "mouvement": "gauche", "cadre": true },
+    { "type": "image", "duree": 3.2, "fichier": "images/produit3.jpg", "legende": "Mode & chaussures", "mouvement": "zoom-arriere", "transition": "zoom" },
+    { "type": "contact", "duree": 4.6, "titre": "Réservez vite", "elements": [
+      { "icone": "whatsapp", "titre": "WhatsApp", "valeurs": ["+243 975 873 394", "+972 555 172 779"] },
+      { "icone": ["instagram", "tiktok"], "titre": "Instagram & TikTok", "valeurs": ["Ming store entreprise"] }
+    ] }
+  ]
+}

@@ -1,9 +1,22 @@
 # Romingmonprojet
 
-Mon premier projet : la vidéo de présentation en motion design de **MING Store**
-(import & export entre la Chine, Dubaï, la Turquie et les pays africains).
+Vidéos motion design de **MING Store** (import & export entre la Chine, Dubaï, la Turquie
+et les pays africains).
 
-## Vidéos (23 s, voix off française + musique originale)
+| Dossier | Contenu |
+|---|---|
+| [`modeles/`](modeles/LISEZ-MOI.md) | **Modèles de vidéos motion design** : une vidéo = un fichier JSON (promo, nouvel arrivage, présentation, collection luxe…), exportée en TikTok, YouTube, carré et post Instagram, avec musique générée |
+| [`montage/`](montage/LISEZ-MOI.md) | **Outil de montage** : assembler vidéos et photos avec découpe, transitions, textes, musique et voix off |
+| `video/` | La première vidéo de présentation MING Store (23 s) |
+
+```bash
+cd modeles && node rendu.js projets/promo-produit.json --format tous
+cd montage && node montage.js exemple.json
+```
+
+## Première vidéo MING Store
+
+### Vidéos (23 s, voix off française + musique originale)
 
 | Format | Fichier |
 |---|---|
@@ -13,7 +26,7 @@ Mon premier projet : la vidéo de présentation en motion design de **MING Store
 Scènes : logo MING Store → « Import & Export » → routes Chine / Dubaï / Turquie → Afrique
 → « Le monde à portée de votre business » → contacts WhatsApp, Instagram et TikTok.
 
-## Modifier et refaire la vidéo
+### Modifier et refaire la vidéo
 
 - `video/animation.html` : l'animation (textes, couleurs, numéros). Ouvre-la dans un navigateur pour un aperçu.
 - `video/music.py` : génère la musique `music_bed.wav`.

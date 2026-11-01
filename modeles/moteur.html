@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Modèles motion design – aperçu</title>
+<style>
+  @font-face { font-family: Inter; font-weight: 400; src: url("polices/Inter-Regular.otf"); }
+  @font-face { font-family: Inter; font-weight: 500 600; src: url("polices/Inter-SemiBold.otf"); }
+  @font-face { font-family: Inter; font-weight: 700 800; src: url("polices/Inter-Bold.otf"); }
+  @font-face { font-family: Inter; font-weight: 900; src: url("polices/Inter-Black.otf"); }
+  html, body { margin: 0; background: #111; color: #eee; font-family: Inter, sans-serif; }
+  canvas { display: block; }
+  body:not(.rendu) { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; }
+  body:not(.rendu) canvas { max-height: 75vh; max-width: 95vw; box-shadow: 0 10px 40px #000; }
+  .barre { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+  .barre button, .barre select, .barre label { background: #222; color: #eee; border: 1px solid #444; border-radius: 8px; padding: 8px 12px; font: inherit; cursor: pointer; }
+  input[type=range] { width: min(700px, 90vw); }
+  .rendu .barre, .rendu #temps, .rendu p { display: none; }
+  p { color: #999; font-size: 14px; max-width: 700px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="barre">
+  <label>📂 Ouvrir un projet (JSON + images)
+    <input id="fichiers" type="file" multiple accept=".json,image/*" hidden>
+  </label>
+  <select id="format">
+    <option value="1080x1920">TikTok / Reels (9:16)</option>
+    <option value="1920x1080">YouTube (16:9)</option>
+    <option value="1080x1080">Carré (1:1)</option>
+    <option value="1080x1350">Post Instagram (4:5)</option>
+  </select>
+  <button id="lecture">⏸ Pause</button>
+</div>
+<canvas id="c"></canvas>
+<input id="temps" type="range" min="0" max="1000" value="0">
+<p>Sélectionne ton fichier <b>.json</b> (dans <code>projets/</code>) et, si besoin, ses images en même temps.
+  Modifie le JSON dans un éditeur de texte puis rouvre-le pour voir le résultat.</p>
+<script src="moteur.js"></script>
+<script>
+const DEMO = {
+  marque: 'Votre Marque', theme: { decor: 'particules' },
+  scenes: [
+    { type: 'logo', duree: 3, sousTitre: 'Ouvre un projet pour commencer' },
+    { type: 'titre', duree: 3, surtitre: 'Modèles motion design', lignes: ['Créez vos', 'vidéos'] }
+  ]
+};
+const params = new URLSearchParams(location.search);
+if (params.has('render')) {
+  document.body.classList.add('rendu');   // mode export : piloté par rendu.js
+} else {
+  let projet = DEMO, fichiers = {}, lecture = true, t = 0, last = performance.now(), dragging = false;
+  const fmt = document.getElementById('format'), range = document.getElementById('temps'), btn = document.getElementById('lecture');
+  async function recharger() {
+    const [w, h] = fmt.value.split('x').map(Number);
+    await Moteur.charger(projet, w, h, fichiers);
+    t = Math.min(t, Moteur.duree);
+  }
+  fmt.onchange = recharger;
+  btn.onclick = () => { lecture = !lecture; btn.textContent = lecture ? '⏸ Pause' : '▶ Lecture'; };
+  range.oninput = () => { t = range.value / 1000 * Moteur.duree; dragging = true; };
+  range.onchange = () => { dragging = false; };
+  document.getElementById('fichiers').onchange = async (ev) => {
+    fichiers = {};
+    for (const f of ev.target.files) {
+      if (f.name.endsWith('.json')) projet = JSON.parse(await f.text());
+      else { const url = URL.createObjectURL(f); fichiers[f.name] = url; fichiers['images/' + f.name] = url; }
+    }
+    t = 0; await recharger();
+  };
+  recharger().then(() => (function loop(now) {
+    const dt = (now - last) / 1000; last = now;
+    if (lecture && !dragging) t = (t + dt) % Moteur.duree;
+    Moteur.render(t);
+    if (!dragging) range.value = t / Moteur.duree * 1000;
+    requestAnimationFrame(loop);
+  })(performance.now()));
+}
+</script>
+</body>
+</html>

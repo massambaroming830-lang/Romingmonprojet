@@ -1,0 +1,13 @@
+{
+  "marque": "MING Store",
+  "theme": { "fond": "#0a0805", "principal": "#B8892D", "accent": "#F2C66D", "texte": "#FFF8EC", "doux": "#cbbfa8", "decor": "degrade" },
+  "transition": "fondu",
+  "audio": { "musique": "auto", "ambiance": "luxe" },
+  "scenes": [
+    { "type": "titre", "duree": 3, "surtitre": "Nouvelle collection", "lignes": ["L'élégance", "de Dubaï"] },
+    { "type": "image", "duree": 3.4, "fichier": "images/luxe1.jpg", "legende": "Parfums orientaux", "cadre": true, "mouvement": "zoom-avant" },
+    { "type": "image", "duree": 3.4, "fichier": "images/luxe2.jpg", "legende": "Montres & bijoux", "cadre": true, "mouvement": "droite" },
+    { "type": "promo", "duree": 3.8, "remise": "-20%", "etiquette": "Lancement", "produit": "Sur toute la collection", "mention": "Offre valable jusqu'à dimanche", "transition": "zoom" },
+    { "type": "appel", "duree": 3.4, "lignes": ["Réservez", "votre pièce"], "bouton": "Commander sur WhatsApp", "icone": "whatsapp", "detail": "+243 975 873 394 • +972 555 172 779" }
+  ]
+}

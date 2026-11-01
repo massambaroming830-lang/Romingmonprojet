@@ -1,0 +1,16 @@
+{
+  "marque": "MING Store",
+  "theme": { "fond": "#07070a", "principal": "#A3192F", "accent": "#E0344F", "decor": "particules" },
+  "transition": "volet",
+  "audio": { "musique": "auto", "ambiance": "energique" },
+  "scenes": [
+    { "type": "titre", "duree": 2.6, "surtitre": "MING Store présente", "lignes": ["GRANDE", "PROMO"] },
+    { "type": "promo", "duree": 4.2, "remise": "-30%", "etiquette": "Cette semaine", "produit": "Sacs & accessoires importés de Dubaï", "ancienPrix": "50 $", "prix": "35 $", "mention": "Stock limité – premiers arrivés, premiers servis" },
+    { "type": "liste", "duree": 4, "titre": "Pourquoi nous ?", "elements": [
+      { "texte": "Qualité garantie", "icone": "etoile" },
+      { "texte": "Livraison rapide", "icone": "camion" },
+      { "texte": "Prix grossiste", "icone": "coche" }
+    ] },
+    { "type": "appel", "duree": 3.4, "lignes": ["Commandez", "maintenant"], "bouton": "Écrivez-nous sur WhatsApp", "icone": "whatsapp", "detail": "+243 975 873 394" }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "format": "tiktok",
+  "fps": 30,
+  "remplissage": "flou",
+  "transition": { "type": "fondu", "duree": 0.5 },
+  "sortie": "sortie/exemple_{format}.mp4",
+  "clips": [
+    { "fichier": "../video/MING_Store_TikTok_1080x1920.mp4", "debut": 0, "fin": 3.8, "son": false },
+    { "fichier": "exemple/photo-exemple.jpg", "duree": 3, "mouvement": "zoom-avant", "transition": { "type": "glisse-gauche", "duree": 0.4 } },
+    { "fichier": "../video/MING_Store_YouTube_1920x1080.mp4", "debut": 8.4, "fin": 14.2, "son": true, "volume": 0.9, "transition": "cercle" },
+    { "fichier": "../video/MING_Store_TikTok_1080x1920.mp4", "debut": 17, "fin": 23, "son": false, "transition": { "type": "zoom", "duree": 0.4 } }
+  ],
+  "textes": [
+    { "texte": "Arrivage de la semaine", "debut": 3.6, "fin": 6.5, "position": "haut", "taille": 64 },
+    { "texte": "Livraison partout en Afrique", "debut": 7.2, "fin": 12, "position": "bas", "taille": 58, "couleurFond": "0xA3192F@0.85" }
+  ],
+  "musique": { "fichier": "exemple/musique-afro.m4a", "volume": 0.5, "fonduSortie": 2, "baisserSousVoix": true }
+}
