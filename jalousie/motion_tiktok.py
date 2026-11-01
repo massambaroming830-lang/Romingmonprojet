@@ -1,6 +1,6 @@
 """Motion TikTok (1080x1920, 15 s) « À bas la jalousie » : Jérémie en avant, effets caméra réels
 (Ken Burns, flashs, secousses, flou de mouvement, grain pellicule, light leak, particules lumineuses),
-voix off naturelle (voix_kokoro.py) et une séquence « Christelle Mafuila soutient l'équipe JS Production ».
+voix off naturelle (voix_kokoro.py) et une séquence « Christelle Business Service Dubaï soutient l'équipe JS Production ».
 
 Usage :
   python3 musique.py musique_tiktok.wav 26 17.5 4.5 8.5 12.5 17.5
@@ -28,6 +28,7 @@ poster = Image.open(os.path.join(HERE, "affiche.jpg")).convert("RGB")
 jeremie = poster.crop((400, 0, 760, 359)).resize((1440, 1436), Image.LANCZOS)
 jeremie = jeremie.filter(ImageFilter.UnsharpMask(radius=3, percent=90, threshold=2))
 christelle = Image.open(os.path.join(HERE, "christelle_mafuila.jpg")).convert("RGB")
+christelle_dubai = Image.open(os.path.join(HERE, "christelle_dubai.jpg")).convert("RGB")
 
 
 def cover(img, w, h):
@@ -38,7 +39,7 @@ def cover(img, w, h):
 
 
 BG_POSTER = ImageEnhance.Brightness(cover(poster, W, H).filter(ImageFilter.GaussianBlur(40))).enhance(0.55)
-BG_CHRIS = ImageEnhance.Brightness(cover(christelle, W, H).filter(ImageFilter.GaussianBlur(45))).enhance(0.45)
+BG_CHRIS = ImageEnhance.Brightness(cover(christelle_dubai, W, H).filter(ImageFilter.GaussianBlur(45))).enhance(0.45)
 POSTER_HD = poster.resize((poster.width * 2, poster.height * 2), Image.LANCZOS).filter(
     ImageFilter.UnsharpMask(radius=2, percent=80))
 
@@ -181,12 +182,20 @@ def scene_date(t):  # 8.5 - 12.5 : date + lieu, Jérémie en plan large
     return c
 
 
-def scene_christelle(t):  # 12.5 - 17.5 : soutien (séquence secondaire)
-    c = BG_CHRIS.copy().convert("RGBA")
-    k = ease_out(t / 0.5)
-    pw = 600
-    photo = cover(christelle, pw, int(pw * 1.33))
-    frame = Image.new("RGBA", (photo.width + 28, photo.height + 28), (255, 255, 255, 255))
+_cards = {}
+
+
+def card(img, pw=560, focus=0.5):
+    """Photo encadrée de blanc, coins arrondis, ombre portée."""
+    key = (id(img), pw)
+    if key in _cards:
+        return _cards[key]
+    ph = int(pw * 1.33)
+    s = max(pw / img.width, ph / img.height)
+    im = img.resize((math.ceil(img.width * s), math.ceil(img.height * s)), Image.LANCZOS)
+    y = int(min(max(0, focus * im.height - ph / 2), im.height - ph))
+    photo = im.crop(((im.width - pw) // 2, y, (im.width - pw) // 2 + pw, y + ph))
+    frame = Image.new("RGBA", (pw + 28, ph + 28), (255, 255, 255, 255))
     frame.paste(photo, (14, 14))
     mask = Image.new("L", frame.size, 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, *frame.size), 30, fill=255)
@@ -195,13 +204,25 @@ def scene_christelle(t):  # 12.5 - 17.5 : soutien (séquence secondaire)
     sh.paste((0, 0, 0, 150), (60, 75, 60 + frame.width, 75 + frame.height), mask)
     sh = sh.filter(ImageFilter.GaussianBlur(25))
     sh.alpha_composite(frame, (60, 60))
+    _cards[key] = sh
+    return sh
+
+
+def scene_christelle(t):  # 12.5 - 17.5 : soutien (séquence secondaire), deux photos
+    c = BG_CHRIS.copy().convert("RGBA")
     zoom = 1 + 0.05 * t / 5
-    paste(c, sh, W / 2, 820 + 300 * (1 - k), scale=zoom * (0.85 + 0.15 * k), alpha=clamp(k * 2),
-          angle=-4 + 2 * k)
-    pop(c, "AVEC LE SOUTIEN DE", F_BOLD, 44, W / 2, 1405, t, 0.35)
-    pop(c, "Christelle Mafuila", F_BLACK, 92, W / 2, 1490, t, 0.5, slide=40)
-    bar(c, W // 2, 1615, 760, 96, RED, t, 0.8)
-    pop(c, "soutient l'équipe JS PRODUCTION", F_BOLD, 44, W / 2, 1612, t, 0.9)
+    k1 = ease_out(t / 0.5)
+    paste(c, card(christelle), W / 2 - 165 + 40 * (1 - k1), 760 + 300 * (1 - k1),
+          scale=zoom * 0.78 * (0.85 + 0.15 * k1), alpha=clamp(k1 * 2), angle=-7 + 2 * k1)
+    k2 = ease_out((t - 1.4) / 0.55)
+    if k2 > 0:  # la photo de Dubaï arrive par la droite, devant
+        paste(c, card(christelle_dubai, focus=0.42), W / 2 + 175 + 420 * (1 - k2), 820,
+              scale=zoom * 0.8, alpha=clamp(k2 * 2), angle=6 - 14 * (1 - k2))
+    pop(c, "AVEC LE SOUTIEN DE", F_BOLD, 44, W / 2, 1385, t, 0.35)
+    pop(c, "Christelle", F_BLACK, 96, W / 2, 1470, t, 0.5, slide=40)
+    pop(c, "BUSINESS SERVICE DUBAÏ", F_BLACK, 58, W / 2, 1568, t, 0.8, fill=YELLOW)
+    bar(c, W // 2, 1690, 760, 96, RED, t, 1.1)
+    pop(c, "soutient l'équipe JS PRODUCTION", F_BOLD, 44, W / 2, 1687, t, 1.2)
     return c
 
 
@@ -223,7 +244,7 @@ def scene_poster(t):  # 17.5 - 26.0 : révélation de l'affiche + appel à l'act
         paste(c, btn, W / 2, 1420, scale=pulse * (0.7 + 0.3 * ease_back((t - 1.3) / 0.35)),
               alpha=clamp((t - 1.3) * 4))
     pop(c, "LES PLACES PARTENT VITE", F_BLACK, 50, W / 2, 1290, t, 0.4, fill=YELLOW)
-    pop(c, "Avec le soutien de Christelle Mafuila · JS Production", F_BOLD, 32, W / 2, 1580, t, 1.8)
+    pop(c, "Avec le soutien de Christelle Business Service Dubaï · JS Production", F_BOLD, 30, W / 2, 1580, t, 1.8)
     pop(c, "ON VOUS ATTEND !", F_BLACK, 90, W / 2, 1720, t, 4.4, slide=50)
     return c
 

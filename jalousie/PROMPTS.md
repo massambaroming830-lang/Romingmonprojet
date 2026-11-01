@@ -71,8 +71,8 @@ Si un clip manque, le script met à sa place un fond provisoire. Tu peux donc vo
 
 ## 3. Motion TikTok (26 s, 1080x1920) : `Jeremie_A_bas_la_jalousie_motion_TikTok.mp4`
 
-Fait uniquement à partir des vraies photos : Jérémie (tiré de l'affiche) est la star, et Christelle Mafuila
-a sa séquence de soutien « Christelle Mafuila soutient l'équipe JS Production » (12,5 à 17,5 s).
+Fait uniquement à partir des vraies photos : Jérémie (tiré de l'affiche) est la star, et Christelle Business Service Dubaï
+a sa séquence de soutien « Christelle Business Service Dubaï soutient l'équipe JS Production » (12,5 à 17,5 s).
 Effets de caméra : Ken Burns, flashs et secousses aux coupes, flou de mouvement, grain pellicule, light leak chaud,
 particules lumineuses, vignettage.
 
@@ -81,7 +81,7 @@ particules lumineuses, vignettage.
 | 0 à 4,5 s | Jérémie en gros plan | Il est de retour… Jérémie et son groupe ! Préparez-vous à rire comme jamais. |
 | 4,5 à 8,5 s | Titre | Le spectacle événement : À bas la jalousie ! |
 | 8,5 à 12,5 s | Date et lieu | Rendez-vous le vingt décembre, au théâtre La Madeleine, à Bruxelles. |
-| 12,5 à 17,5 s | Christelle Mafuila | Avec le soutien de Christelle Mafuila, et de toute l'équipe JS Production. |
+| 12,5 à 17,5 s | Christelle Business Service Dubaï (2 photos) | Avec le soutien de Christelle Business Service Dubaï, et de l'équipe JS Production. |
 | 17,5 à 26 s | Affiche + CTA | Les places partent très vite… Réservez dès maintenant ! À bas la jalousie ! On vous attend ! |
 
 ```bash
