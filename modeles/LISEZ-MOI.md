@@ -18,7 +18,7 @@ Aperçu en direct : ouvre `moteur.html` dans Chrome, clique sur **Ouvrir un proj
 sélectionne ton JSON (et ses images en même temps).
 
 **Options de `rendu.js`** : `--format tiktok|youtube|carre|post|tous` (plusieurs : `tiktok,youtube`),
-`--fps 30`, `--apercu` (ou `--apercu 2,5.5` pour des instants précis), `--muet`, `--sortie dossier/`.
+`--fps 30`, `--apercu` (ou `--apercu 2,5.5` pour des instants précis), `--muet`, `--sans-voix`, `--sortie dossier/`.
 
 Il faut : Node.js, Playwright (Chromium), ffmpeg, et Python 3 + numpy pour la musique automatique.
 
@@ -30,8 +30,62 @@ Il faut : Node.js, Playwright (Chromium), ffmpeg, et Python 3 + numpy pour la mu
 | `nouvel-arrivage.json` | Titre → 3 photos produits (Ken Burns) → contacts | grille, glisse, musique afro |
 | `presentation-entreprise.json` | Logo → services → chiffres → avis client → contacts | formes, volet/cercle |
 | `collection-luxe.json` | Collection → photos encadrées → promo → réservation | doré, dégradé, fondu, ambiance luxe |
+| `style-neon.json` | Spécial électronique → arrivage → -25 % → WhatsApp | **néon** : sol rétro qui défile, textes lumineux, transition glitch |
+| `style-minimal.json` | Logo → chiffres → « comment ça marche » → contacts | **minimal** : fond clair, cartes blanches, musique douce |
+| `style-pop.json` | Soldes → -50 % → avis client → « Vite, ça part ! » | **pop** : jaune vif, rayures, ombres décalées, transition en bandes |
+| `style-wax.json` | Livraison en Afrique → destinations → photo → contacts | **wax** : bandes de motifs africains, orange et or, musique afro |
+
+Les 4 projets `style-*` ont une **voix off ElevenLabs** (voir plus bas).
 
 Les vidéos obtenues (format TikTok) sont dans [`exemples/`](exemples/).
+
+## Styles
+
+Un style change tout le « look » d'un coup : couleurs, fond animé, cartes, effets de texte et transition.
+
+```json
+"theme": { "style": "neon" }
+```
+
+| style | Look |
+|---|---|
+| `classique` | sombre, rouge MING, particules (par défaut) |
+| `neon` | violet nuit, rose et cyan lumineux, sol rétro en perspective, transition `glitch` |
+| `minimal` | fond crème, texte noir, cartes blanches à ombre douce, transition `glisse` |
+| `pop` | jaune vif, rayures, ombres décalées façon autocollant, transition `bandes` |
+| `wax` | brun, orange et or, bandes de motifs africains, transition `rideau` |
+| `luxe` | noir et or, dégradés doux, transition `fondu` |
+
+Tu peux garder un style et changer ses couleurs : `"theme": { "style": "pop", "fond": "#3dd6ff" }`.
+
+## Voix off ElevenLabs
+
+1. Crée une clé API sur elevenlabs.io (Profil → **API Keys**), avec la permission **Text to Speech**
+   (et **Voices : lecture** pour lister les voix).
+2. Mets-la dans la variable d'environnement `ELEVENLABS_API_KEY` :
+   - Mac / Linux : `export ELEVENLABS_API_KEY="ta_cle"`
+   - Windows (PowerShell) : `$env:ELEVENLABS_API_KEY="ta_cle"`
+3. Ajoute le texte à dire dans chaque scène, et (si tu veux) la voix choisie :
+
+```json
+"audio": { "musique": "auto",
+           "elevenlabs": { "voix": "Charlotte", "modele": "eleven_multilingual_v2",
+                           "stabilite": 0.45, "similarite": 0.8, "style": 0.35, "vitesse": 1.0 } },
+"scenes": [
+  { "type": "titre", "duree": 3, "lignes": ["GRANDE", "PROMO"], "voix": "C'est la grande promo chez Ming Store !" }
+]
+```
+
+4. Lance le rendu normalement : `node rendu.js projets/style-neon.json`.
+
+- `voix` (dans `elevenlabs`) : le nom d'une voix de ton compte ou son identifiant.
+  Liste tes voix avec `node elevenlabs.js --liste`.
+- **La scène s'allonge toute seule** si la phrase est plus longue que sa durée.
+- **La musique baisse automatiquement** quand la voix parle.
+- Réglages par scène : `voixDecalage` (délai avant la phrase, 0.35 s par défaut), `voixPause` (silence après).
+- Les voix déjà générées sont gardées dans `sortie/voix/` : relancer le rendu ne dépense pas
+  de crédits ElevenLabs tant que le texte ne change pas.
+- `--sans-voix` pour faire la vidéo sans voix.
 
 ## Structure d'un projet
 
@@ -46,9 +100,10 @@ Les vidéos obtenues (format TikTok) sont dans [`exemples/`](exemples/).
 }
 ```
 
-- **decor** (fond animé) : `particules`, `grille`, `formes`, `degrade`, `uni`
+- **style** : voir plus haut. **decor** (fond animé) : `particules`, `grille`, `formes`, `degrade`, `neon`, `lignes`, `rayures`, `motifs`, `uni`
+- **surPrincipal** : couleur du texte posé sur la couleur principale (badge, bouton)
 - **transition** (globale ou par scène, vers la scène suivante) :
-  `volet`, `rideau`, `cercle`, `fondu`, `flash`, `zoom`, `glisse`, `aucune`
+  `volet`, `rideau`, `cercle`, `fondu`, `flash`, `zoom`, `glisse`, `glitch`, `bandes`, `aucune`
 - **audio.musique** : `"auto"` (musique originale générée et calée sur les transitions),
   un fichier (`"musique/ma-musique.mp3"`) ou `false`.
   **audio.ambiance** : `energique`, `douce`, `luxe`, `afro`. **audio.bpm** : tempo (optionnel).
@@ -70,7 +125,7 @@ Les vidéos obtenues (format TikTok) sont dans [`exemples/`](exemples/).
 | `contact` | `titre`, `elements` : `{ "icone", "titre", "valeurs": [...] }`, `pied`, `marque` (false pour cacher le logo) |
 | `appel` | `lignes`, `bouton`, `icone`, `detail` |
 
-Chaque scène a aussi `duree` (secondes) et `transition`.
+Chaque scène a aussi `duree` (secondes), `transition` et `voix` (texte de la voix off).
 
 **Icônes** : `whatsapp`, `instagram`, `tiktok`, `facebook`, `telephone`, `email`, `lieu`, `web`,
 `coche`, `etoile`, `camion` — ou n'importe quel texte court (ex. `"1"`, `"A"`).

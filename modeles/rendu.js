@@ -7,7 +7,9 @@
 //  node rendu.js projets/promo-produit.json --apercu        → quelques images PNG pour vérifier
 //
 //  Options : --format tiktok|youtube|carre|post|tous   --fps 30   --sortie dossier/
-//            --apercu [t1,t2,...]   --muet
+//            --apercu [t1,t2,...]   --muet   --sans-voix
+//  Voix off : ajoute "voix": "texte" aux scènes ; elle est générée par ElevenLabs
+//  (clé dans la variable ELEVENLABS_API_KEY). Voir elevenlabs.js.
 //  Requis : Node.js, Playwright (Chromium), ffmpeg ; Python 3 + numpy pour la musique auto.
 // =====================================================================
 const { chromium } = require('playwright');
@@ -89,6 +91,15 @@ function argsAudio(a, duree) {
 }
 
 (async () => {
+  // Voix off ElevenLabs (avant tout : elle peut allonger les scènes)
+  if (!opt('muet') && !opt('sans-voix') && !opt('apercu') && (projet.scenes || []).some(s => s.voix)) {
+    try {
+      const voix = await require('./elevenlabs').voixOff(projet, path.join(sortie, 'voix'), nom);
+      if (voix) { projet.audio = Object.assign({}, projet.audio, { voix }); console.log('✔ Voix off ElevenLabs : ' + voix); }
+    } catch (e) {
+      console.warn('⚠ Voix off non générée — ' + e.message + '\n  La vidéo sera faite sans voix.');
+    }
+  }
   const fichiers = imagesDuProjet();
   const browser = await chromium.launch();
   let audio;

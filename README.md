@@ -5,7 +5,7 @@ et les pays africains).
 
 | Dossier | Contenu |
 |---|---|
-| [`modeles/`](modeles/LISEZ-MOI.md) | **Modèles de vidéos motion design** : une vidéo = un fichier JSON (promo, nouvel arrivage, présentation, collection luxe…), exportée en TikTok, YouTube, carré et post Instagram, avec musique générée |
+| [`modeles/`](modeles/LISEZ-MOI.md) | **Modèles de vidéos motion design** : une vidéo = un fichier JSON (promo, nouvel arrivage, présentation, collection luxe…), 6 styles (classique, néon, minimal, pop, wax, luxe), voix off ElevenLabs, export TikTok, YouTube, carré et post Instagram, musique générée |
 | [`montage/`](montage/LISEZ-MOI.md) | **Outil de montage** : assembler vidéos et photos avec découpe, transitions, textes, musique et voix off |
 | `video/` | La première vidéo de présentation MING Store (23 s) |
 

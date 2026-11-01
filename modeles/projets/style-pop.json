@@ -1,0 +1,16 @@
+{
+  "marque": "MING Store",
+  "theme": { "style": "pop" },
+  "audio": { "musique": "auto", "ambiance": "energique",
+             "elevenlabs": { "voix": "JBFqnCBsd6RMkjVDRZzb", "stabilite": 0.3, "style": 0.6, "vitesse": 1.1 } },
+  "scenes": [
+    { "type": "titre", "duree": 2.6, "surtitre": "Attention", "lignes": ["C'EST LES", "SOLDES !"],
+      "voix": "Attention, c'est les soldes !" },
+    { "type": "promo", "duree": 4, "remise": "-50%", "etiquette": "Tout doit partir", "produit": "Vêtements & chaussures", "ancienPrix": "30 $", "prix": "15 $",
+      "voix": "Moins cinquante pour cent sur les vêtements et les chaussures !" },
+    { "type": "avis", "duree": 3.8, "texte": "Des prix imbattables et une livraison rapide, je reviens chaque mois !", "auteur": "Aïcha, Kinshasa",
+      "voix": "Nos clients adorent nos prix." },
+    { "type": "appel", "duree": 3.2, "lignes": ["Vite,", "ça part !"], "bouton": "Je commande", "icone": "whatsapp", "detail": "+243 975 873 394",
+      "voix": "Vite, ça part ! Commandez sur WhatsApp." }
+  ]
+}

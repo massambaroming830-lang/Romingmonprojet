@@ -26,9 +26,26 @@ const images = {};     // nom de fichier -> HTMLImageElement
 const TR = 0.4;        // demi-durée d'une transition (s)
 
 const THEME_DEFAUT = {
-  fond: '#07070a', principal: '#A3192F', accent: '#E0344F', texte: '#ffffff',
-  doux: '#bdbdc4', carte: 'rgba(255,255,255,0.06)', decor: 'particules', police: 'Inter'
+  fond: '#07070a', principal: '#A3192F', accent: '#E0344F', texte: '#ffffff', surPrincipal: '#ffffff',
+  doux: '#bdbdc4', carte: 'rgba(255,255,255,0.06)', decor: 'particules', police: 'Inter', style: 'classique'
 };
+
+// ---------- Styles : un « look » complet (couleurs, fond, cartes, effets de texte, transition) ----------
+// Les couleurs de "theme" dans le JSON remplacent celles du style.
+const STYLES = {
+  classique: {},
+  neon: { fond: '#05010f', principal: '#ff2bd6', accent: '#22f3ff', texte: '#ffffff', doux: '#b7a8d9',
+    carte: 'rgba(34,243,255,0.05)', decor: 'neon', transition: 'glitch' },
+  minimal: { fond: '#f4f1ea', principal: '#141414', accent: '#e4572e', texte: '#141414', doux: '#5c5c5c',
+    carte: '#ffffff', decor: 'lignes', transition: 'glisse' },
+  pop: { fond: '#ffd400', principal: '#141414', accent: '#ff3b6b', texte: '#141414', doux: '#3a3a3a',
+    carte: '#ffffff', decor: 'rayures', transition: 'bandes' },
+  wax: { fond: '#2b1306', principal: '#e8590c', accent: '#ffc53d', texte: '#fff7e6', doux: '#e9cfae',
+    carte: 'rgba(255,197,61,0.08)', decor: 'motifs', transition: 'rideau' },
+  luxe: { fond: '#0a0805', principal: '#B8892D', accent: '#F2C66D', texte: '#FFF8EC', doux: '#cbbfa8',
+    carte: 'rgba(242,198,109,0.06)', decor: 'degrade', transition: 'fondu' },
+};
+const CLAIR = () => T.style === 'minimal' || T.style === 'pop';
 
 function rgba(hex, a) {
   if (!hex || hex[0] !== '#') return hex;
@@ -52,7 +69,13 @@ function text(str, x, y, { size = 60, weight = 700, color = T.texte, align = 'ce
   ctx.save();
   ctx.globalAlpha *= alpha;
   font(size, weight); spacing(sp);
-  ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = base;
+  ctx.textAlign = align; ctx.textBaseline = base;
+  if (T.style === 'neon') { ctx.shadowColor = color; ctx.shadowBlur = Math.min(30, size * .35) * U; }
+  if (T.style === 'pop' && weight >= 800 && size >= 60) { // ombre décalée façon autocollant
+    ctx.fillStyle = color === T.accent ? T.principal : T.accent;
+    ctx.fillText(String(str), x + size * .06 * U, y + size * .06 * U);
+  }
+  ctx.fillStyle = color;
   ctx.fillText(String(str), x, y);
   ctx.restore();
 }
@@ -150,6 +173,90 @@ const DECORS = {
       ctx.stroke(); ctx.restore();
     }
   },
+  // Néon : sol en perspective qui défile + soleil rétro
+  neon(t) {
+    const hz = H * .62;
+    const g = ctx.createLinearGradient(0, 0, 0, hz);
+    g.addColorStop(0, rgba(T.fond, 0)); g.addColorStop(1, rgba(T.principal, .22));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, hz);
+    const sr = Math.min(W, H) * .22;
+    ctx.save(); ctx.beginPath(); ctx.arc(W / 2, hz, sr, Math.PI, 0); ctx.clip();
+    const gs = ctx.createLinearGradient(0, hz - sr, 0, hz);
+    gs.addColorStop(0, rgba(T.accent, .35)); gs.addColorStop(1, rgba(T.principal, .35));
+    ctx.fillStyle = gs; ctx.fillRect(W / 2 - sr, hz - sr, sr * 2, sr);
+    ctx.fillStyle = T.fond;
+    for (let k = 1; k < 7; k++) ctx.fillRect(W / 2 - sr, hz - k * sr / 7, sr * 2, k * 1.4 * U);
+    ctx.restore();
+    ctx.save(); ctx.strokeStyle = rgba(T.principal, .55); ctx.lineWidth = 2 * U;
+    ctx.shadowColor = T.principal; ctx.shadowBlur = 12 * U;
+    ctx.beginPath(); ctx.moveTo(0, hz); ctx.lineTo(W, hz);
+    for (let k = -12; k <= 12; k++) { ctx.moveTo(W / 2 + k * W * .04, hz); ctx.lineTo(W / 2 + k * W * .35, H); }
+    const f = (t * .6) % 1;
+    for (let k = 0; k < 10; k++) { const z = Math.pow((k + f) / 10, 2.2); const y = hz + (H - hz) * z; ctx.moveTo(0, y); ctx.lineTo(W, y); }
+    ctx.stroke(); ctx.restore();
+    for (const p of particules.slice(0, 40)) {
+      ctx.globalAlpha = p.a * (.5 + .5 * Math.sin(t * 3 + p.ph));
+      ctx.fillStyle = p.r > 2.5 ? T.accent : '#fff';
+      ctx.fillRect(p.x * W, p.y * hz, 2 * U, 2 * U);
+    }
+    ctx.globalAlpha = 1;
+  },
+  // Minimal : fines lignes qui se tracent lentement
+  lignes(t) {
+    ctx.strokeStyle = rgba(T.texte, .08); ctx.lineWidth = 1.5 * U;
+    ctx.beginPath();
+    for (let k = 1; k < 6; k++) { const x = W * k / 6; ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+    ctx.stroke();
+    ctx.fillStyle = T.accent;
+    const y = ((t * .05) % 1) * H;
+    ctx.fillRect(W / 6 - 1.5 * U, y, 3 * U, H * .12);
+    ctx.fillRect(W * 5 / 6 - 1.5 * U, H - y - H * .12, 3 * U, H * .12);
+    ctx.beginPath(); ctx.arc(W * .88, H * .08, 14 * U, 0, 6.283); ctx.fill();
+  },
+  // Pop : rayures diagonales qui défilent + pastilles
+  rayures(t) {
+    ctx.save();
+    ctx.fillStyle = rgba('#ffffff', .22);
+    const pas = 120 * U, dec = (t * 60 * U) % (pas * 2);
+    ctx.translate(W / 2, H / 2); ctx.rotate(-Math.PI / 5);
+    const L = Math.hypot(W, H);
+    for (let x = -L + dec; x < L; x += pas * 2) ctx.fillRect(x, -L, pas, L * 2);
+    ctx.restore();
+    const r2 = rnd(11);
+    for (let i = 0; i < 18; i++) {
+      const x = r2() * W, y = r2() * H, r = (r2() * 10 + 6) * U;
+      ctx.fillStyle = i % 3 ? rgba(T.principal, .9) : T.accent;
+      ctx.beginPath(); ctx.arc(x + Math.sin(t + i) * 10 * U, y + Math.cos(t * .8 + i) * 10 * U, r, 0, 6.283); ctx.fill();
+    }
+  },
+  // Wax : bandes de motifs africains (losanges, triangles) qui défilent en haut et en bas
+  motifs(t) {
+    halo(t, W / 2, H / 2, .16);
+    const bande = (y0, h, sens) => {
+      const pas = h, dec = (t * 40 * U * sens) % (pas * 2);
+      ctx.save(); ctx.beginPath(); ctx.rect(0, y0, W, h); ctx.clip();
+      ctx.fillStyle = T.principal; ctx.fillRect(0, y0, W, h);
+      for (let x = -pas * 2 + dec; x < W + pas * 2; x += pas) {
+        const i = Math.round((x - dec) / pas);
+        ctx.fillStyle = i % 2 ? T.accent : T.fond;
+        ctx.beginPath(); ctx.moveTo(x, y0 + h / 2); ctx.lineTo(x + pas / 2, y0 + h * .1); ctx.lineTo(x + pas, y0 + h / 2); ctx.lineTo(x + pas / 2, y0 + h * .9); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = i % 2 ? T.fond : T.texte;
+        ctx.beginPath(); ctx.arc(x + pas / 2, y0 + h / 2, h * .1, 0, 6.283); ctx.fill();
+      }
+      ctx.restore();
+      ctx.fillStyle = T.accent; ctx.fillRect(0, y0 - 6 * U, W, 4 * U); ctx.fillRect(0, y0 + h + 2 * U, W, 4 * U);
+    };
+    const h = 70 * U;
+    bande(18 * U, h, 1); bande(H - h - 18 * U, h, -1);
+    // triangles discrets dans le fond
+    ctx.strokeStyle = rgba(T.accent, .08); ctx.lineWidth = 3 * U;
+    const r2 = rnd(5);
+    for (let i = 0; i < 10; i++) {
+      const x = r2() * W, y = r2() * H, s = (r2() * 80 + 50) * U, a = t * .2 + i;
+      ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.beginPath();
+      ctx.moveTo(0, -s / 2); ctx.lineTo(s / 2, s / 2); ctx.lineTo(-s / 2, s / 2); ctx.closePath(); ctx.stroke(); ctx.restore();
+    }
+  },
   degrade(t) {
     const blobs = [[.25, .3, T.principal], [.75, .65, T.accent], [.5, .9, T.principal]];
     blobs.forEach(([bx, by, c], i) => {
@@ -163,7 +270,7 @@ const DECORS = {
 function fond(t) {
   ctx.fillStyle = T.fond; ctx.fillRect(0, 0, W, H);
   (DECORS[T.decor] || DECORS.particules)(t);
-  vignette();
+  if (!CLAIR()) vignette();
 }
 
 // ---------- Icônes ----------
@@ -265,9 +372,24 @@ function carte(cx, cy, w, h, p) {
   ctx.save();
   ctx.globalAlpha *= clamp(p * 1.5);
   ctx.translate(0, (1 - e) * 50 * U);
+  const x = cx - w / 2, y = cy - h / 2;
+  if (T.style === 'pop') {          // carte blanche, gros contour noir, ombre dure
+    ctx.fillStyle = T.principal; roundRect(x + 12 * U, y + 12 * U, w, h, 18 * U); ctx.fill();
+    ctx.fillStyle = T.carte; ctx.strokeStyle = T.principal; ctx.lineWidth = 5 * U;
+    roundRect(x, y, w, h, 18 * U); ctx.fill(); ctx.stroke();
+    return;
+  }
+  if (T.style === 'minimal') {      // carte blanche, ombre douce, sans contour
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.12)'; ctx.shadowBlur = 40 * U; ctx.shadowOffsetY = 12 * U;
+    ctx.fillStyle = T.carte; roundRect(x, y, w, h, 8 * U); ctx.fill(); ctx.restore();
+    ctx.fillStyle = T.accent; ctx.fillRect(x, y, 8 * U, h);
+    return;
+  }
   ctx.fillStyle = T.carte; ctx.strokeStyle = rgba(T.accent, .7); ctx.lineWidth = 2.5 * U;
-  roundRect(cx - w / 2, cy - h / 2, w, h, 26 * U); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = T.principal; ctx.fillRect(cx - w / 2 + 2 * U, cy - h / 2 + 22 * U, 7 * U, h - 44 * U);
+  if (T.style === 'neon') { ctx.shadowColor = T.accent; ctx.shadowBlur = 25 * U; }
+  roundRect(x, y, w, h, 26 * U); ctx.fill(); ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = T.principal; ctx.fillRect(x + 2 * U, y + 22 * U, 7 * U, h - 44 * U);
 }
 function titreHaut(str, y, l, size = 64) {
   if (!str) return;
@@ -420,8 +542,8 @@ SCENES.promo = (l, d, s) => {
     ctx.strokeStyle = rgba('#ffffff', .5); ctx.lineWidth = 4 * U; ctx.setLineDash([10 * U, 10 * U]);
     ctx.beginPath(); ctx.arc(0, 0, br * .74, 0, 6.283); ctx.stroke(); ctx.setLineDash([]);
     const rem = s.remise || '-30%';
-    text(rem, 0, s.etiquette ? -br * .08 : 0, { size: fit(rem, br * 1.3, 170, 900), weight: 900 });
-    if (s.etiquette) text(s.etiquette.toUpperCase(), 0, br * .38, { size: fit(s.etiquette.toUpperCase(), br * 1.1, 40, 700, 4), weight: 700, sp: 4 });
+    text(rem, 0, s.etiquette ? -br * .08 : 0, { size: fit(rem, br * 1.3, 170, 900), weight: 900, color: T.surPrincipal });
+    if (s.etiquette) text(s.etiquette.toUpperCase(), 0, br * .38, { size: fit(s.etiquette.toUpperCase(), br * 1.1, 40, 700, 4), weight: 700, sp: 4, color: T.surPrincipal });
     ctx.restore();
   }
   // halo pulsé
@@ -496,11 +618,11 @@ SCENES.image = (l, d, s) => {
   const ly = cadre ? y + h + (H - y - h) * .45 : H * (PORTRAIT ? .8 : .82);
   if (s.legende) {
     const pl = eOut(prog(l, .5, 1.1));
-    paragraph(s.legende, W / 2, ly + (1 - pl) * 30 * U, W * .86, { size: PORTRAIT ? 64 : 62, weight: 800, alpha: pl, maxLignes: 2 });
+    paragraph(s.legende, W / 2, ly + (1 - pl) * 30 * U, W * .86, { size: PORTRAIT ? 64 : 62, weight: 800, alpha: pl, maxLignes: 2, color: cadre ? T.texte : '#ffffff' });
   }
   if (s.detail) {
     const pd = eOut(prog(l, .9, 1.5));
-    paragraph(s.detail, W / 2, ly + 110 * U + (1 - pd) * 20 * U, W * .84, { size: 40, weight: 500, color: T.doux, alpha: pd, maxLignes: 2 });
+    paragraph(s.detail, W / 2, ly + 110 * U + (1 - pd) * 20 * U, W * .84, { size: 40, weight: 500, color: cadre ? T.doux : '#dddddd', alpha: pd, maxLignes: 2 });
   }
 };
 
@@ -625,8 +747,8 @@ SCENES.appel = (l, d, s) => {
     roundRect(-bw / 2 - ring * 30 * U, -bh / 2 - ring * 30 * U, bw + ring * 60 * U, bh + ring * 60 * U, bh); ctx.stroke();
     ctx.fillStyle = T.principal; ctx.shadowColor = T.accent; ctx.shadowBlur = 40 * U;
     roundRect(-bw / 2, -bh / 2, bw, bh, bh / 2); ctx.fill(); ctx.shadowBlur = 0;
-    if (s.icone) { icone(s.icone, -bw / 2 + 60 * U + 18 * U, 0, 36 * U); text(s.bouton, ic / 2, 0, { size: bs, weight: 800 }); }
-    else text(s.bouton, 0, 0, { size: bs, weight: 800 });
+    if (s.icone) { icone(s.icone, -bw / 2 + 60 * U + 18 * U, 0, 36 * U); text(s.bouton, ic / 2, 0, { size: bs, weight: 800, color: T.surPrincipal }); }
+    else text(s.bouton, 0, 0, { size: bs, weight: 800, color: T.surPrincipal });
     ctx.restore();
   }
   if (s.detail) {
@@ -644,7 +766,7 @@ SCENES.avis = (l, d, s) => {
     const p = prog(l, .3 + i * .1, .7 + i * .1);
     if (p <= 0) continue;
     const x = W / 2 + (i - (nb - 1) / 2) * 80 * U, y = H * (PORTRAIT ? .36 : .33), r = 32 * U * eBack(p);
-    ctx.fillStyle = '#FFC531'; ctx.beginPath();
+    ctx.fillStyle = CLAIR() ? T.accent : '#FFC531'; ctx.beginPath();
     for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * .45 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
     ctx.closePath(); ctx.fill();
   }
@@ -685,6 +807,28 @@ const TRANSITIONS = {
     overlay(u) { ctx.fillStyle = `rgba(255,255,255,${.5 * Math.pow(1 - Math.abs(u), 3)})`; ctx.fillRect(0, 0, W, H); }
   },
   glisse: { transform(u) { ctx.translate(u < 0 ? lerp(0, -W, eIn(1 + u)) : lerp(W, 0, eOut(u)), 0); } },
+  // Glitch : bandes horizontales décalées + séparation des couleurs
+  glitch: { overlay(u) {
+    const c = 1 - Math.abs(u);
+    if (c <= 0) return;
+    const r2 = rnd(1 + Math.floor((u + 1) * 12));
+    for (let i = 0; i < 14; i++) {
+      const y = r2() * H, h = (r2() * 60 + 8) * U * c, dx = (r2() - .5) * 200 * U * c;
+      try { ctx.drawImage(cv, 0, y, W, h, dx, y, W, h); } catch (e) {}
+      ctx.fillStyle = rgba(r2() > .5 ? T.principal : T.accent, .5 * c);
+      ctx.fillRect(dx * 2, y, W * r2(), h * .3);
+    }
+    if (Math.abs(u) < .25) { ctx.fillStyle = rgba(T.fond, 1 - Math.abs(u) / .25); ctx.fillRect(0, 0, W, H); }
+  } },
+  // Bandes : volets verticaux qui tombent les uns après les autres
+  bandes: { overlay(u) {
+    const n = 6, bw = W / n;
+    for (let i = 0; i < n; i++) {
+      const d = i * .08, a = u < 0 ? eInOut(clamp((u + 1 - d) / (1 - .4))) : 1 - eInOut(clamp((u - d) / (1 - .4)));
+      ctx.fillStyle = i % 2 ? T.principal : T.accent;
+      if (u < 0) ctx.fillRect(i * bw, 0, bw + 1, H * a); else ctx.fillRect(i * bw, H * (1 - a), bw + 1, H * a);
+    }
+  } },
   aucune: {},
 };
 
@@ -703,7 +847,8 @@ function initCanvas(w, h) {
 async function charger(projet, w, h, fichiers = {}) {
   initCanvas(w, h);
   P = projet;
-  T = Object.assign({}, THEME_DEFAUT, projet.theme || {});
+  const style = (projet.theme && projet.theme.style) || projet.style || 'classique';
+  T = Object.assign({}, THEME_DEFAUT, STYLES[style] || {}, projet.theme || {}, { style });
   timeline = []; DUREE = 0;
   for (const sc of projet.scenes || []) {
     const duree = sc.duree || 3.5;
@@ -723,7 +868,7 @@ async function charger(projet, w, h, fichiers = {}) {
 
 function transitionApres(i) {
   if (i < 0 || i >= timeline.length - 1) return null;
-  const nom = timeline[i].scene.transition || P.transition || 'volet';
+  const nom = timeline[i].scene.transition || P.transition || T.transition || 'volet';
   return TRANSITIONS[nom] || TRANSITIONS.volet;
 }
 
@@ -737,7 +882,7 @@ function dessinerScene(i, t) {
   if (trOut && trOut.transform && l > e.duree - TR) trOut.transform((l - e.duree) / TR);
   else if (trIn && trIn.transform && l < TR) trIn.transform(l / TR);
   // fondu de sortie quand la transition ne cache pas l'écran
-  if (trOut && !trOut.transform && trOut !== TRANSITIONS.volet && trOut !== TRANSITIONS.cercle && trOut !== TRANSITIONS.rideau)
+  if (trOut && !trOut.transform && ![TRANSITIONS.volet, TRANSITIONS.cercle, TRANSITIONS.rideau, TRANSITIONS.bandes].includes(trOut))
     ctx.globalAlpha *= 1 - eIn(prog(l, e.duree - .35, e.duree));
   if (fn) fn(l, e.duree, e.scene);
   else text('Scène inconnue : ' + e.scene.type, W / 2, H / 2, { size: 50 });
@@ -766,5 +911,5 @@ function render(t) {
   }
 }
 
-window.Moteur = { charger, render, get duree() { return DUREE; }, SCENES, TRANSITIONS, DECORS };
+window.Moteur = { charger, render, get duree() { return DUREE; }, SCENES, TRANSITIONS, DECORS, STYLES };
 })();

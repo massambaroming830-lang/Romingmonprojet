@@ -1,0 +1,21 @@
+{
+  "marque": "MING Store",
+  "theme": { "style": "wax" },
+  "audio": { "musique": "auto", "ambiance": "afro",
+             "elevenlabs": { "voix": "JBFqnCBsd6RMkjVDRZzb", "stabilite": 0.45, "style": 0.4 } },
+  "scenes": [
+    { "type": "titre", "duree": 3, "surtitre": "Livraison partout en", "lignes": ["AFRIQUE"],
+      "voix": "Ming Store livre partout en Afrique." },
+    { "type": "liste", "duree": 4.2, "titre": "Nos destinations", "elements": [
+      { "texte": "RD Congo", "icone": "lieu" },
+      { "texte": "Afrique de l'Ouest", "icone": "lieu" },
+      { "texte": "Afrique de l'Est", "icone": "lieu" }
+    ], "voix": "Congo, Afrique de l'Ouest, Afrique de l'Est : vos colis arrivent chez vous." },
+    { "type": "image", "duree": 3.4, "fichier": "images/livraison.jpg", "legende": "Colis suivi jusqu'à vous", "cadre": true,
+      "voix": "Votre colis est suivi à chaque étape." },
+    { "type": "contact", "duree": 4.5, "elements": [
+      { "icone": "whatsapp", "titre": "WhatsApp", "valeurs": ["+243 975 873 394", "+972 555 172 779"] },
+      { "icone": ["instagram", "tiktok"], "titre": "Instagram & TikTok", "valeurs": ["Ming store entreprise"] }
+    ], "pied": "Chine • Dubaï • Turquie → Afrique", "voix": "Contactez Ming Store sur WhatsApp." }
+  ]
+}

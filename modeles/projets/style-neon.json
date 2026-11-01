@@ -1,0 +1,19 @@
+{
+  "marque": "MING Store",
+  "theme": { "style": "neon" },
+  "audio": { "musique": "auto", "ambiance": "energique",
+             "elevenlabs": { "voix": "JBFqnCBsd6RMkjVDRZzb", "modele": "eleven_multilingual_v2", "stabilite": 0.4, "style": 0.45, "vitesse": 1.05 } },
+  "scenes": [
+    { "type": "titre", "duree": 2.8, "surtitre": "Spécial électronique", "lignes": ["HIGH", "TECH"],
+      "voix": "Spécial électronique chez Ming Store !" },
+    { "type": "liste", "duree": 4, "titre": "Arrivage", "elements": [
+      { "texte": "Téléphones", "detail": "Dernières générations", "icone": "telephone" },
+      { "texte": "Écouteurs sans fil", "detail": "Son haute qualité", "icone": "etoile" },
+      { "texte": "Montres connectées", "detail": "Sport et santé", "icone": "coche" }
+    ], "voix": "Téléphones, écouteurs sans fil et montres connectées, directement importés." },
+    { "type": "promo", "duree": 4, "remise": "-25%", "etiquette": "Ce week-end", "produit": "Sur tous les écouteurs", "ancienPrix": "40 $", "prix": "30 $",
+      "voix": "Ce week-end, moins vingt-cinq pour cent sur tous les écouteurs." },
+    { "type": "appel", "duree": 3.4, "lignes": ["Commandez", "maintenant"], "bouton": "WhatsApp", "icone": "whatsapp", "detail": "+243 975 873 394",
+      "voix": "Commandez maintenant sur WhatsApp !" }
+  ]
+}

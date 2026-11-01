@@ -1,0 +1,24 @@
+{
+  "marque": "MING Store",
+  "theme": { "style": "minimal" },
+  "audio": { "musique": "auto", "ambiance": "douce",
+             "elevenlabs": { "voix": "JBFqnCBsd6RMkjVDRZzb", "stabilite": 0.55, "style": 0.2 } },
+  "scenes": [
+    { "type": "logo", "duree": 3, "sousTitre": "Import & Export",
+      "voix": "Ming Store. Votre partenaire import export." },
+    { "type": "chiffres", "duree": 3.8, "titre": "En quelques chiffres", "elements": [
+      { "valeur": 500, "prefixe": "+", "label": "clients" },
+      { "valeur": 3, "label": "pays d'achat" },
+      { "valeur": 48, "suffixe": " h", "label": "pour répondre" }
+    ], "voix": "Plus de cinq cents clients nous font confiance, avec des achats dans trois pays." },
+    { "type": "liste", "duree": 4, "titre": "Comment ça marche", "elements": [
+      { "texte": "Vous choisissez", "detail": "Photo ou lien du produit" },
+      { "texte": "Nous achetons", "detail": "En Chine, à Dubaï ou en Turquie" },
+      { "texte": "Vous recevez", "detail": "Livraison suivie en Afrique" }
+    ], "voix": "Vous choisissez, nous achetons, et vous recevez votre commande." },
+    { "type": "contact", "duree": 4.5, "elements": [
+      { "icone": "whatsapp", "titre": "WhatsApp", "valeurs": ["+243 975 873 394", "+972 555 172 779"] },
+      { "icone": ["instagram", "tiktok"], "titre": "Instagram & TikTok", "valeurs": ["Ming store entreprise"] }
+    ], "voix": "Écrivez-nous sur WhatsApp, Instagram ou TikTok." }
+  ]
+}
