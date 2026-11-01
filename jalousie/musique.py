@@ -1,15 +1,17 @@
 """Bande-son originale : nappe cinématique + vent + whoosh aux transitions + impact sur l'affiche.
-Usage : python3 musique.py musique.wav"""
+Usage : python3 musique.py musique.wav [durée repère transitions...]
+ex. motion TikTok : python3 musique.py musique_tiktok.wav 26 17.5 4.5 8.5 12.5 17.5"""
 import sys, wave
 import numpy as np
 
-SR, DUR = 44100, 15.0
+A = sys.argv[2:]
+SR, DUR = 44100, (float(A[0]) if A else 15.0)
 N = int(SR * DUR)
 t = np.arange(N) / SR
 rng = np.random.default_rng(3)
 mix = np.zeros((N, 2))
-TRANS = [2.8, 5.4, 8.0, 10.0]  # instants des transitions (voir montage.py)
-REVEAL = 10.0
+TRANS = [float(x) for x in A[2:]] if len(A) > 2 else [2.8, 5.4, 8.0, 10.0]  # transitions (montage.py)
+REVEAL = float(A[1]) if len(A) > 1 else 10.0
 
 
 def env(a, r, n):
@@ -61,7 +63,7 @@ for x in TRANS:
     add(w, x - 0.45, 0.9, pan=0.3)
 
 # impact + accord final sur l'affiche
-n = int(4.5 * SR); tt = np.arange(n) / SR
+n = int((DUR - REVEAL) * SR); tt = np.arange(n) / SR
 boom = np.sin(2 * np.pi * (40 + 80 * np.exp(-tt * 20)) * tt) * np.exp(-tt * 2.5)
 final = sum(np.sin(2 * np.pi * f * tt) for f in [220, 277.18, 329.63, 440]) * np.exp(-tt * 0.6) / 4
 add(boom, REVEAL, 1.0)

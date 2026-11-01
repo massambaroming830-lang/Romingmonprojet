@@ -68,3 +68,27 @@ ambiance de ville et cloches (Bruxelles), foule devant le théâtre, impact sur 
 Pour changer de voix : `ELEVENLABS_VOICE_ID=<id> python3 elevenlabs.py` (supprimer `audio_el/` pour tout régénérer).
 
 Si un clip manque, le script met à sa place un fond provisoire. Tu peux donc voir le rythme de la vidéo tout de suite.
+
+## 3. Motion TikTok (26 s, 1080x1920) : `Jeremie_A_bas_la_jalousie_motion_TikTok.mp4`
+
+Fait uniquement à partir des vraies photos : Jérémie (tiré de l'affiche) est la star, et Christelle Mafuila
+a sa séquence de soutien « Christelle Mafuila soutient l'équipe JS Production » (12,5 à 17,5 s).
+Effets de caméra : Ken Burns, flashs et secousses aux coupes, flou de mouvement, grain pellicule, light leak chaud,
+particules lumineuses, vignettage.
+
+| Temps | Scène | Voix off (Kokoro, voix française ff_siwis) |
+|---|---|---|
+| 0 à 4,5 s | Jérémie en gros plan | Il est de retour… Jérémie et son groupe ! Préparez-vous à rire comme jamais. |
+| 4,5 à 8,5 s | Titre | Le spectacle événement : À bas la jalousie ! |
+| 8,5 à 12,5 s | Date et lieu | Rendez-vous le vingt décembre, au théâtre La Madeleine, à Bruxelles. |
+| 12,5 à 17,5 s | Christelle Mafuila | Avec le soutien de Christelle Mafuila, et de toute l'équipe JS Production. |
+| 17,5 à 26 s | Affiche + CTA | Les places partent très vite… Réservez dès maintenant ! À bas la jalousie ! On vous attend ! |
+
+```bash
+cd jalousie
+python3 musique.py musique_tiktok.wav 26 17.5 4.5 8.5 12.5 17.5
+python3 voix_kokoro.py kokoro-v1.0.onnx voices-v1.0.bin      # modèle : github.com/thewh1teagle/kokoro-onnx (model-files-v1.0)
+python3 motion_tiktok.py
+```
+La phonétique de la voix est écrite à la main dans `voix_kokoro.py` (pas besoin d'espeak-ng).
+Pour changer un texte, modifie le texte **et** sa phonétique.
