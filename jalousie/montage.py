@@ -90,6 +90,8 @@ def poster_file(tmp):
         f":color=0xE4202A@1:t=fill:enable='gte(t,1.2)',"
         f"drawtext=fontfile={FONT}:text='RÉSERVEZ VOS PLACES':fontsize={small}:fontcolor=white"
         f":x=(w-tw)/2:y={cta_y}:enable='gte(t,1.2)',"
+        f"drawtext=fontfile={FONT2}:text='EN COLLABORATION AVEC MING STORE ENTREPRISE':fontsize={int(small*0.6)}"
+        f":fontcolor=white@0.9:x=(w-tw)/2:y={cta_y+int(small*2.2)}:alpha='min(1,max(0,(t-1.6)/0.4))',"
         f"fade=t=out:st={POSTER_DUR-0.5}:d=0.5,format=yuv420p[v]"
     )
     run(["ffmpeg", "-v", "error", "-y", "-i", img, "-filter_complex", fc, "-map", "[v]",

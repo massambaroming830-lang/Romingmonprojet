@@ -260,6 +260,24 @@ def make_ticket():
 
 
 TICKET = make_ticket()
+
+
+def ming_logo():
+    """Logo MING Store (comme la vidéo MING Store : MING blanc, « Sto » rouge, « re » blanc) + ENTREPRISE."""
+    parts = [("MING ", BLACK, 44, WHITE), ("Sto", BLACK, 44, (228, 32, 42)), ("re", BLACK, 44, WHITE),
+             ("  ENTREPRISE", BOLD, 24, (200, 190, 185))]
+    ims = [text(*p_) for p_ in parts]
+    wdt = sum(i.width - 20 for i in ims) + 2 * 36
+    pl = rrect((int(wdt), 84), 42, INK)
+    x = 36
+    for (txt, path, size, _), im in zip(parts, ims):
+        y = (84 - (im.height - 20)) // 2 - 10 - (4 if size > 30 else -6)
+        pl.alpha_composite(im, (int(x - 10), int(y)))
+        x += im.width - 20
+    return shadowed(pl, 18, 10, 70)
+
+
+MING_LOGO = ming_logo()
 POSTER_CARD = shadowed(rounded_photo(poster, 640, int(640 * 1518 / 1170), 34, border=12), 40, 26, 110)
 FACE_CARD = shadowed(rounded_photo(face, 700, 760, 44), 40, 26, 120)
 TITLE_CARD = shadowed(rounded_photo(title_crop, 820, 760, 44), 40, 26, 120)
@@ -321,7 +339,8 @@ PRICE_CARDS = [price_card(*p) for p in PRICES]
 
 def s_ticket(t):  # 0 - 4.2
     c = light_bg(t)
-    reveal(c, "BEN ORACLE BUSINESS PRÉSENTE", BOLD, 26, 110, 300, t, 0.1, ORANGE, spacing=5)
+    reveal(c, "BEN ORACLE BUSINESS PRÉSENTE", BOLD, 26, 110, 248, t, 0.1, ORANGE, spacing=5)
+    reveal(c, "EN COLLABORATION AVEC MING STORE ENTREPRISE", SEMI, 22, 110, 292, t, 0.3, GREY, spacing=3)
     reveal(c, "Réservez", BLACK, 150, 100, 360, t, 0.35)
     reveal(c, "votre", BLACK, 150, 100, 530, t, 0.75)
     reveal(c, "place.", BLACK, 150, 100, 700, t, 1.15, ORANGE)
@@ -440,12 +459,15 @@ def s_final(t):  # 21.4 - 26.0 : collage + appel à l'action
     kp = ease_back((t - 0.5) / 0.6)
     if t > 0.5:
         put(c, POSTER_CARD, W / 2, 860 + 6 * math.sin(t * 1.5), "mm", scale=max(0.01, 0.95 * kp + 0.01 * t))
-    reveal(c, "DIM. 06.12.2026 · 16H00", BLACK, 54, W / 2, 1450, t, 1.2, INK, "mt")
+    reveal(c, "DIM. 06.12.2026 · 16H00", BLACK, 54, W / 2, 1410, t, 1.2, INK, "mt")
     if t > 1.6:
         pulse = 1 + 0.03 * math.sin((t - 1.6) * 2 * math.pi * 1.4)
         put(c, shadowed(pill("Réservez votre place", BLACK, 54, ORANGE, WHITE, 50, 24), 24, 14, 100),
-            W / 2, 1620, "mm", scale=pulse * max(0.01, ease_back((t - 1.6) / 0.4)))
-    reveal(c, "INFOLINE  +243 80 008 40 76", BOLD, 38, W / 2, 1740, t, 2.1, ORANGE, "mt", spacing=2)
+            W / 2, 1570, "mm", scale=pulse * max(0.01, ease_back((t - 1.6) / 0.4)))
+    reveal(c, "INFOLINE  +243 80 008 40 76", BOLD, 38, W / 2, 1670, t, 2.1, ORANGE, "mt", spacing=2)
+    reveal(c, "en collaboration avec", SEMI, 28, W / 2, 1745, t, 2.5, GREY, "mt")
+    if t > 2.7:
+        put(c, MING_LOGO, W / 2, 1840, "mm", scale=max(0.01, ease_back((t - 2.7) / 0.4)))
     return c
 
 

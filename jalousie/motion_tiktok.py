@@ -245,6 +245,7 @@ def scene_poster(t):  # 17.5 - 26.0 : révélation de l'affiche + appel à l'act
               alpha=clamp((t - 1.3) * 4))
     pop(c, "LES PLACES PARTENT VITE", F_BLACK, 50, W / 2, 1290, t, 0.4, fill=YELLOW)
     pop(c, "Avec le soutien de Christelle Business Service Dubaï · JS Production", F_BOLD, 30, W / 2, 1580, t, 1.8)
+    pop(c, "En collaboration avec MING Store Entreprise", F_BOLD, 32, W / 2, 1628, t, 2.2, fill=(255, 225, 200))
     pop(c, "ON VOUS ATTEND !", F_BLACK, 90, W / 2, 1720, t, 4.4, slide=50)
     return c
 
