@@ -1,7 +1,7 @@
 """Voix off naturelle (Kokoro TTS, voix française ff_siwis) pour le motion TikTok « À bas la jalousie ».
 
 La phonétique (API) est écrite à la main : pas besoin d'espeak-ng.
-Usage : python3 voix_kokoro.py <kokoro-v1.0.onnx> <voices-v1.0.bin> [voix_tiktok.wav | kinshasa]
+Usage : python3 voix_kokoro.py <kokoro-v1.0.onnx> <voices-v1.0.bin> [voix_tiktok.wav | kinshasa | aigle]
 Modèle : https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.0
 """
 import json, os, sys, wave
@@ -50,6 +50,17 @@ LINES_KINSHASA = [
     (21.75, "Ben Oracle Business vous attend. Réservez dès maintenant !",
      "bɛn ɔʁˈakl, bˈiznɛs, vuz atˈɑ̃. ʁezɛʁvˈe dɛ mɛ̃tnˈɑ̃!", 1.0),
 ]
+# Vidéo de l'aigle Kinshasa -> Angola -> Bruxelles (montage.py, 14,4 s) : python3 voix_kokoro.py <onnx> <voices> aigle
+LINES_AIGLE = [
+    (0.35, "De Kinshasa…", "də kinʃasˈa…", 0.9),
+    (3.0, "en passant par l'Angola…", "ɑ̃ pasˈɑ̃ paʁ lɑ̃ɡɔlˈa…", 0.95),
+    (5.6, "il arrive enfin à Bruxelles !", "il aʁˈiv ɑ̃fˈɛ̃, a bʁysˈɛl!", 0.95),
+    (8.1, "Jérémie et son groupe présentent…", "ʒeʁemˈi e sɔ̃ ɡʁˈup pʁezˈɑ̃t…", 1.0),
+    (10.2, "À bas la jalousie ! Le vingt décembre, à La Madeleine. Réservez vos places !",
+     "a bˈa la ʒaluzˈi! lə vˈɛ̃ desˈɑ̃bʁ, a la madlˈɛn. ʁezɛʁvˈe vo plˈas!", 1.05),
+]
+if len(sys.argv) > 3 and sys.argv[3] == "aigle":
+    LINES, OUT, DUR = LINES_AIGLE, os.path.join(HERE, "voix_off.wav"), 14.4
 if len(sys.argv) > 3 and sys.argv[3] == "kinshasa":
     LINES, OUT = LINES_KINSHASA, os.path.join(HERE, "voix_kinshasa.wav")
 
