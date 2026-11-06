@@ -1,7 +1,7 @@
 """Voix off naturelle (Kokoro TTS, voix française ff_siwis) pour le motion TikTok « À bas la jalousie ».
 
 La phonétique (API) est écrite à la main : pas besoin d'espeak-ng.
-Usage : python3 voix_kokoro.py <kokoro-v1.0.onnx> <voices-v1.0.bin> [voix_tiktok.wav]
+Usage : python3 voix_kokoro.py <kokoro-v1.0.onnx> <voices-v1.0.bin> [voix_tiktok.wav | kinshasa]
 Modèle : https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.0
 """
 import json, os, sys, wave
@@ -32,6 +32,26 @@ LINES = [
     (21.9, "À bas la jalousie ! On vous attend !",
      "a bˈa la ʒaluzˈi! ɔ̃ vuz atˈɑ̃!", 0.95),
 ]
+
+# Version Kinshasa (motion_kinshasa.py) : python3 voix_kokoro.py <onnx> <voices> kinshasa
+LINES_KINSHASA = [
+    (0.5, "Réservez votre place !",
+     "ʁezɛʁvˈe vɔtʁə plˈas!", 0.95),
+    (4.55, "Jérémie Shabani et son groupe, en spectacle !",
+     "ʒeʁemˈi ʃabanˈi, e sɔ̃ ɡʁˈup, ɑ̃ spɛktˈakl!", 0.95),
+    (7.9, "À bas la jalousie ! Dimanche six décembre, à partir de seize heures.",
+     "a bˈa la ʒaluzˈi! dimˈɑ̃ʃ si desˈɑ̃bʁ, a paʁtˈiʁ də sɛzˈœʁ.", 1.0),
+    (11.8, "Au Centre culturel de Kinshasa, salle Grand Tambour.",
+     "o sˈɑ̃tʁ kyltyʁˈɛl də kinʃasˈa, sal ɡʁɑ̃ tɑ̃bˈuʁ.", 1.0),
+    (14.85, "Les places : dix, vingt, cinquante et cent dollars.",
+     "le plˈas: dˈis, vˈɛ̃, sɛ̃kˈɑ̃t, e sˈɑ̃ dɔlˈaʁ.", 1.0),
+    (17.85, "Jérémie, à Kinshasa : on vous attend !",
+     "ʒeʁemˈi, a kinʃasˈa: ɔ̃ vuz atˈɑ̃!", 0.95),
+    (21.75, "Ben Oracle Business vous attend. Réservez dès maintenant !",
+     "bɛn ɔʁˈakl, bˈiznɛs, vuz atˈɑ̃. ʁezɛʁvˈe dɛ mɛ̃tnˈɑ̃!", 1.0),
+]
+if len(sys.argv) > 3 and sys.argv[3] == "kinshasa":
+    LINES, OUT = LINES_KINSHASA, os.path.join(HERE, "voix_kinshasa.wav")
 
 vocab = json.load(open(os.path.join(HERE, "..", "video", "kokoro_config.json")))["vocab"]
 voice = np.load(VOICES)[VOICE]

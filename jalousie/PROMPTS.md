@@ -95,3 +95,16 @@ et baisse automatiquement sous la voix. Pour changer de musique, remplace ce fic
 
 La phonétique de la voix est écrite à la main dans `voix_kokoro.py` (pas besoin d'espeak-ng).
 Pour changer un texte, modifie le texte **et** sa phonétique.
+
+## 4. Motion « Kinshasa » (26 s, TikTok) : `Jeremie_A_bas_la_jalousie_Kinshasa_TikTok.mp4`
+
+Dimanche 6 décembre 2026, à partir de 16h00, Centre culturel de Kinshasa / Grand Tambour (affiche `affiche_kinshasa.jpg`).
+Style « interface » épuré : mots qui passent du flou au net, billet animé avec trajectoire en pointillés,
+écran orange avec texte lettre par lettre, cartes-infos qui s'empilent, tarifs 10$ / 20$ / 50$ / 100$,
+cartes photo avec gros titre tapé, collage final avec l'affiche, « Réservez votre place » et l'infoline.
+
+```bash
+cd jalousie
+python3 voix_kokoro.py kokoro-v1.0.onnx voices-v1.0.bin kinshasa   # -> voix_kinshasa.wav
+python3 motion_kinshasa.py                                          # musique : fond_musique.m4a
+```
