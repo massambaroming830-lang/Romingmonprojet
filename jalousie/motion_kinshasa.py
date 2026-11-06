@@ -31,6 +31,7 @@ WHITE = (255, 255, 255)
 poster = Image.open(os.path.join(HERE, "affiche_kinshasa.jpg")).convert("RGB")  # 1170 x 1518
 face = poster.crop((390, 380, 1050, 1010))           # Jérémie, gros plan
 title_crop = poster.crop((0, 0, 1170, 560))          # haut de l'affiche (titre)
+centre = Image.open(os.path.join(HERE, "centre_culturel_kinshasa.jpg")).convert("RGB")  # 828 x 531
 
 # ---------------- outils ----------------
 
@@ -262,6 +263,7 @@ TICKET = make_ticket()
 POSTER_CARD = shadowed(rounded_photo(poster, 640, int(640 * 1518 / 1170), 34, border=12), 40, 26, 110)
 FACE_CARD = shadowed(rounded_photo(face, 700, 760, 44), 40, 26, 120)
 TITLE_CARD = shadowed(rounded_photo(title_crop, 820, 760, 44), 40, 26, 120)
+CENTRE_CARD = shadowed(rounded_photo(centre.resize((1242, 797), Image.LANCZOS), 960, 700, 44), 40, 26, 120)
 FACE_ROUND = None
 
 
@@ -416,7 +418,7 @@ def s_cards(t):  # 17.6 - 21.4 : cartes photo + gros titre tapé
         card, word, tag = FACE_CARD, "Jérémie.", "Tête d'affiche"
         tt = t
     else:
-        card, word, tag = TITLE_CARD, "Kinshasa.", "Grand Tambour"
+        card, word, tag = CENTRE_CARD, "Kinshasa.", "Grand Tambour"
         tt = t - 1.9
     k = ease_out(tt / 0.5)
     put(c, card, W / 2 + 80 * (1 - k), 820, "mm", alpha=clamp(k * 2), scale=0.92 + 0.08 * k + 0.02 * tt)
@@ -424,7 +426,8 @@ def s_cards(t):  # 17.6 - 21.4 : cartes photo + gros titre tapé
         put(c, shadowed(pill(tag, BOLD, 34, WHITE, ORANGE, 28, 12), 14, 8, 80), W / 2 + 300, 420, "mm",
             scale=max(0.01, ease_back((tt - 0.35) / 0.4)))
     typed(c, word, BLACK, 190, 80, 1350, tt, 0.4, 0.07, WHITE)
-    reveal(c, "Dimanche 6 décembre · 16h00", SEMI, 42, 90, 1600, tt, 1.0, (255, 220, 190))
+    sub = "Centre culturel · Grand Tambour" if card is CENTRE_CARD else "Dimanche 6 décembre · 16h00"
+    reveal(c, sub, SEMI, 42, 90, 1600, tt, 1.0, (255, 220, 190))
     return c
 
 
@@ -433,7 +436,7 @@ def s_final(t):  # 21.4 - 26.0 : collage + appel à l'action
     reveal(c, "Un rendez-vous.", BLACK, 96, W / 2, 150, t, 0.1, INK, "mt")
     kf = ease_out((t - 0.2) / 0.6)
     put(c, FACE_CARD, W / 2 - 250 - 120 * (1 - kf), 820, "mm", alpha=clamp(kf * 2), scale=0.48, angle=8)
-    put(c, TITLE_CARD, W / 2 + 250 + 120 * (1 - kf), 800, "mm", alpha=clamp(kf * 2), scale=0.44, angle=-8)
+    put(c, CENTRE_CARD, W / 2 + 250 + 120 * (1 - kf), 800, "mm", alpha=clamp(kf * 2), scale=0.44, angle=-8)
     kp = ease_back((t - 0.5) / 0.6)
     if t > 0.5:
         put(c, POSTER_CARD, W / 2, 860 + 6 * math.sin(t * 1.5), "mm", scale=max(0.01, 0.95 * kp + 0.01 * t))
